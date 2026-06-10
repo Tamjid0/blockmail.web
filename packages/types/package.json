@@ -1,0 +1,15 @@
+{
+  "name": "@blockmail/types",
+  "version": "0.0.0",
+  "private": true,
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./api": "./api.ts",
+    "./models": "./models.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

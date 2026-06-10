@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USERS
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  plan      Plan     @default(FREE)
+  apiKeys   ApiKey[]
+  usageLogs UsageLog[]
+  webhooks  Webhook[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clerkId])
+  @@index([email])
+}
+
+// ============================================
+// API KEYS
+// ============================================
+
+model ApiKey {
+  id       String @id @default(cuid())
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Unkey integration
+  unkeyId String @unique // Unkey's key ID
+
+  // Display info
+  name      String // "Production", "Staging"
+  keyPrefix String // "bm_live_a1b2" (shown in dashboard)
+
+  // Configuration
+  permissions String[] @default(["verify"]) // ["verify", "admin"]
+  rateLimit   Int      @default(100)        // requests per minute
+  dailyLimit  Int      @default(100)        // requests per day
+
+  // Status
+  isActive   Boolean   @default(true)
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+
+  // Relations
+  usageLogs UsageLog[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([keyPrefix])
+  @@index([unkeyId])
+}
+
+// ============================================
+// USAGE LOGS
+// ============================================
+
+model UsageLog {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiKeyId String
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  // Request info
+  requestId String   @unique // Unique request ID for tracing
+  email     String // Raw email (encrypted at rest)
+  emailHash String // SHA-256 for lookups
+  domain    String // Extracted domain
+
+  // Result
+  isDisposable  Boolean
+  riskScore     Int // 0-100
+  tierTriggered Int // 1-6 (0 = allowed)
+  reason        String // "domain_blocklist_hit", etc.
+
+  // Performance
+  latencyMs Int // Response time in milliseconds
+
+  // Context
+  ipAddress   String? // Client IP (if provided)
+  userAgent   String? // Client user agent (if provided)
+  countryCode String? // ISO country code (if provided)
+
+  // Timestamp
+  createdAt DateTime @default(now())
+
+  @@index([apiKeyId])
+  @@index([createdAt])
+  @@index([domain])
+  @@index([isDisposable])
+}
+
+// ============================================
+// WEBHOOKS
+// ============================================
+
+model Webhook {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Configuration
+  url    String   // Webhook endpoint URL
+  events String[] // ["email.blocked", "email.allowed"]
+  secret String   // HMAC signature secret (shown once)
+
+  // Status
+  isActive        Boolean   @default(true)
+  lastTriggeredAt DateTime?
+  failureCount    Int       @default(0) // Consecutive failures
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+// ============================================
+// PLANS
+// ============================================
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
