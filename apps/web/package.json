@@ -13,11 +13,11 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.39.5",
     "@prisma/client": "^5.15.0",
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.1.0",
-    "@unkey/api": "^0.30.0",
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.1",
     "@upstash/redis": "^1.30.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",

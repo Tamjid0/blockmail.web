@@ -1,26 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireAuth } from "@/lib/auth";
 import { usageQuerySchema } from "@/lib/validator";
 import { getUsageStats } from "@/lib/services/usage";
-import { getUserByClerkId } from "@/lib/services/user";
 
-// GET /api/usage - Get usage statistics
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
+    const auth = await requireAuth();
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
         { status: 401 }
-      );
-    }
-
-    const user = await getUserByClerkId(userId);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: { code: "USER_NOT_FOUND", message: "User not found" } },
-        { status: 404 }
       );
     }
 
@@ -38,8 +27,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const usage = await getUsageStats(user.id, result.data.period ?? "30d");
-
+    const usage = await getUsageStats(auth.dbUser.id, result.data.period ?? "30d");
     return NextResponse.json({ success: true, data: usage });
   } catch {
     return NextResponse.json(

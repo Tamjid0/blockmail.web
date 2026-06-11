@@ -1,17 +1,13 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { getUserByClerkId } from "@/lib/services/user";
+import { requireAuth } from "@/lib/auth";
 import { getApiKeys } from "@/lib/services/apikey";
 import { KeysManager } from "./keys-manager";
 
 export default async function ApiKeysPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const auth = await requireAuth();
+  if (!auth) redirect("/sign-in");
 
-  const user = await getUserByClerkId(userId);
-  if (!user) redirect("/sign-in");
-
-  const keys = await getApiKeys(user.id);
+  const keys = await getApiKeys(auth.dbUser.id);
 
   return <KeysManager initialKeys={keys} />;
 }

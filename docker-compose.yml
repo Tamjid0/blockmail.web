@@ -1,27 +1,180 @@
+# ============================================
+# BLOCKMAIL SAAS — SELF-HOSTED DOCKER COMPOSE
+# ============================================
+# Usage: docker compose up -d
+# Services: Supabase (auth, db, redis, etc.) + Go Engine + Next.js
+# ============================================
+
+name: blockmail-saas
+
 services:
+  # ============================================
+  # SUPABASE SERVICES
+  # ============================================
+
   # PostgreSQL Database
-  postgres:
-    image: postgres:16-alpine
-    container_name: blockmail-postgres
+  db:
+    container_name: blockmail-db
+    image: supabase/postgres:15.6.1.54
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: blockmail
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supersecret}
+      POSTGRES_DB: ${POSTGRES_DB:-blockmail}
+      POSTGRES_HOST: /var/run/postgresql
+      POSTGRES_PORT: 5432
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql/data
+      - ./volumes/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d blockmail"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
+  # GoTrue — Auth Service (signup, signin, JWT)
+  auth:
+    container_name: blockmail-auth
+    image: supabase/gotrue:v2.164.0
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "9999:9999"
+    environment:
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:-http://localhost:8000}
+      DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-supersecret}@db:5432/${POSTGRES_DB:-blockmail}?search_path=auth
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: 9999
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://postgres:${POSTGRES_PASSWORD:-supersecret}@db:5432/${POSTGRES_DB:-blockmail}?search_path=auth
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: 3600
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-change-me}
+      GOTRUE_JWT_ISSUER: ${API_EXTERNAL_URL:-http://localhost:8000}/auth/v1
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+      GOTRUE_URI_ALLOW_LIST: ${URI_ALLOW_LIST:-}
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP:-false}
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: ${EXTERNAL_EMAIL_ENABLED:-true}
+      GOTRUE_MAILER_AUTOCONFIRM: ${MAILER_AUTOCONFIRM:-true}
+      GOTRUE_SMS_AUTOCONFIRM: ${SMS_AUTOCONFIRM:-true}
+      GOTRUE_EXTERNAL_PROVIDER_ENABLED: ${EXTERNAL_PROVIDER_ENABLED:-false}
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # PostgREST — REST API for PostgreSQL
+  rest:
+    container_name: blockmail-rest
+    image: postgrest/postgrest:v14.0.2
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGRST_DB_URI: postgres://postgres:${POSTGRES_PASSWORD:-supersecret}@db:5432/${POSTGRES_DB:-blockmail}
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public,storage,graphql_public}
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-change-me}
+      PGRST_APP_SETTINGS_JWT_EXP: 3600
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Kong — API Gateway
+  kong:
+    container_name: blockmail-kong
+    image: kong/kong:3.9.1
+    restart: unless-stopped
+    depends_on:
+      auth:
+        condition: service_healthy
+      rest:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /var/lib/kong/kong.yml
+      KONG_DNS_RESOLVER: 127.0.0.11
+      KONG_NGINX_PROXY_PROXY_SET_HEADER: "X-Forwarded-For $proxy_add_x_forwarded_for"
+      KONG_VAULTS: "env"
+    volumes:
+      - ./volumes/api/kong.yml:/var/lib/kong/kong.yml:ro
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Meta — PostgreSQL Metadata API
+  meta:
+    container_name: blockmail-meta
+    image: supabase/postgres-meta:v0.96.3
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PG_META_DB_HOST: db
+      PG_META_DB_PORT: 5432
+      PG_META_DB_NAME: ${POSTGRES_DB:-blockmail}
+      PG_META_DB_USER: postgres
+      PG_META_DB_PASSWORD: ${POSTGRES_PASSWORD:-supersecret}
+      PG_META_PORT: 8080
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Studio — Supabase Dashboard
+  studio:
+    container_name: blockmail-studio
+    image: supabase/studio:2026.04.08-sha-205cbe7
+    restart: unless-stopped
+    depends_on:
+      meta:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    environment:
+      STUDIO_PG_META_URL: http://meta:8080
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-blockmail}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supersecret}
+      SUPABASE_URL: http://kong:8000
+      SUPABASE_PUBLIC_URL: ${SUPABASE_PUBLIC_URL:-http://localhost:8000}
+      SUPABASE_ANON_KEY: ${ANON_KEY:-}
+      SUPABASE_SERVICE_KEY: ${SERVICE_ROLE_KEY:-}
+      AUTH_JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-change-me}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/platform/profile').then((r) => {if (r.status !== 200) throw new Error(r.status)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================
+  # BLOCKMAIL SERVICES
+  # ============================================
+
   # Redis
   redis:
-    image: redis:7-alpine
     container_name: blockmail-redis
+    image: redis:7-alpine
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -35,10 +188,10 @@ services:
 
   # Go Blockmail Engine
   blockmail-engine:
+    container_name: blockmail-engine
     build:
       context: ../blockmail
       dockerfile: Dockerfile
-    container_name: blockmail-engine
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -46,8 +199,8 @@ services:
       - ENV=development
       - PORT=8080
       - REDIS_URL=redis://redis:6379/0
-      - API_KEY=development-secret-key
-      - ADMIN_API_KEY=admin-secret-key
+      - API_KEY=${BLOCKMAIL_ENGINE_API_KEY:-development-secret-key}
+      - ADMIN_API_KEY=${ADMIN_API_KEY:-admin-secret-key}
       - LOOKUP_TIMEOUT_MS=5000
       - RATE_LIMIT_MAX_REQUESTS=1000
       - RATE_LIMIT_WINDOW_SECONDS=60
@@ -55,6 +208,35 @@ services:
       redis:
         condition: service_healthy
 
+  # Next.js Web App
+  web:
+    container_name: blockmail-web
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-http://kong:8000}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-supersecret}@db:5432/${POSTGRES_DB:-blockmail}
+      - REDIS_URL=redis://redis:6379
+      - BLOCKMAIL_ENGINE_URL=http://blockmail-engine:8080
+      - BLOCKMAIL_ENGINE_API_KEY=${BLOCKMAIL_ENGINE_API_KEY:-development-secret-key}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      - NODE_ENV=${NODE_ENV:-production}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      blockmail-engine:
+        condition: service_started
+      kong:
+        condition: service_healthy
+
 volumes:
-  postgres_data:
+  db_data:
   redis_data:

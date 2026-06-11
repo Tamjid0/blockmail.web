@@ -74,12 +74,12 @@
 
 | Layer | Choice | Why |
 |-------|--------|-----|
-| Framework | Next.js 15 (App Router) | SSR/SSG, API routes, edge |
+| Framework | Next.js 14 (App Router) | SSR/SSG, API routes, edge |
 | Language | TypeScript (strict) | 100% type safety |
 | Database | PostgreSQL + Prisma | Type-safe ORM, migrations |
 | Cache | Redis | Rate limiting, caching |
-| Auth (Dashboard) | Clerk | Hassle-free, best DX |
-| API Keys | Unkey (self-hosted) | Purpose-built, full control |
+| Auth | Supabase | Cloud + self-hosted, same API |
+| API Keys | Self-managed | No external dependency |
 | UI | shadcn/ui + Radix | Accessible, dark/light |
 | Styling | Tailwind CSS | Utility-first, responsive |
 | Validation | Zod | End-to-end type safety |
@@ -87,6 +87,8 @@
 | Testing | Vitest + Playwright | Unit/integration + E2E |
 | Monorepo | Turborepo | Shared packages, parallel builds |
 | Engine | Go Blockmail (Docker) | Existing, proven, fast |
+| Deploy (Cloud) | Vercel + Supabase + Upstash + Railway | Managed, scalable |
+| Deploy (Self-hosted) | Docker Compose | Full control, single VPS |
 
 ---
 
@@ -105,8 +107,31 @@
 
 ### NOT Building
 - Not building a new email verification engine (Go engine exists)
-- Not building custom auth (Clerk handles it)
-- Not building custom API key management (Unkey handles it)
+- Not building custom auth (Supabase handles it)
+- Not building external API key management (self-managed)
+
+---
+
+## DEPLOYMENT MODES
+
+### Cloud Deploy (Recommended for launch)
+- Vercel → Next.js
+- Supabase Cloud → PostgreSQL + Auth
+- Upstash → Redis
+- Railway → Go Engine
+- Config: `.env.cloud`
+
+### Self-Hosted Deploy (For full control)
+- Docker Compose → Everything on one VPS
+- Supabase Local → PostgreSQL + Auth
+- Redis (Docker) → Cache
+- Go Engine (Docker) → Email verification
+- Next.js (Docker) → Web app
+- Config: `.env.selfhosted`
+
+### Switching Between Modes
+- Same codebase — zero code changes
+- Just swap env files and deploy method
 
 ---
 
@@ -121,6 +146,7 @@
 - [ ] Dark mode works perfectly
 - [ ] Mobile responsive everywhere
 - [ ] Production deployment works on first try
+- [ ] Can switch between cloud and self-hosted with zero code changes
 
 ---
 

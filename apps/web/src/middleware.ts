@@ -1,103 +1,154 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
-const isPublicRoute = createRouteMatcher([
+const publicRoutes = [
   "/",
-  "/sign-in(.*)",
-  "/sign-up(.*)",
+  "/sign-in",
+  "/sign-up",
   "/sign-out",
-  "/try(.*)",
-  "/docs(.*)",
+  "/try",
+  "/docs",
   "/api/health",
   "/api/v1/try",
-  "/api/webhooks(.*)",
-]);
+  "/api/v1/verify",
+  "/api/auth/sync",
+];
 
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-function getRateLimitKey(request: NextRequest): string {
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || request.headers.get("x-real-ip") || "unknown";
-  const path = request.nextUrl.pathname;
-  return `${ip}:${path}`;
+function isPublicRoute(pathname: string): boolean {
+  return publicRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
 }
 
-function checkRateLimit(key: string, limit: number, windowMs: number): boolean {
-  const now = Date.now();
-  const entry = rateLimitStore.get(key);
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-
-  if (entry.count >= limit) {
-    return false;
-  }
-
-  entry.count++;
-  return true;
-}
-
-function hasValidCsrfToken(request: NextRequest): boolean {
-  if (request.method === "GET" || request.method === "HEAD" || request.method === "OPTIONS") {
-    return true;
-  }
-
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-
-  if (origin && host) {
-    try {
-      const originUrl = new URL(origin);
-      if (originUrl.host !== host) {
-        return false;
-      }
-    } catch {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-export default clerkMiddleware(async (_auth, request) => {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/_next") || (pathname.includes(".") && !pathname.startsWith("/api"))) {
+  // Skip static assets and internal Next.js routes
+  if (
+    pathname.startsWith("/_next") ||
+    (pathname.includes(".") && !pathname.startsWith("/api"))
+  ) {
     return NextResponse.next();
   }
 
-  if (!hasValidCsrfToken(request)) {
-    return NextResponse.json(
-      { error: "CSRF validation failed" },
-      { status: 403 }
-    );
-  }
-
-  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/health") && !pathname.startsWith("/api/v1/try") && !pathname.startsWith("/api/webhooks")) {
-    const rateLimitKey = getRateLimitKey(request);
-    const isWrite = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
-    const limit = isWrite ? 10 : 60;
-    const windowMs = 60 * 1000;
-
-    if (!checkRateLimit(rateLimitKey, limit, windowMs)) {
-      return NextResponse.json(
-        { error: "Too many requests. Please try again later." },
-        {
-          status: 429,
-          headers: {
-            "Retry-After": "60",
-            "X-RateLimit-Limit": String(limit),
-            "X-RateLimit-Remaining": "0",
-          },
+  // CSRF protection for state-changing requests
+  if (
+    request.method === "POST" ||
+    request.method === "PUT" ||
+    request.method === "PATCH" ||
+    request.method === "DELETE"
+  ) {
+    const origin = request.headers.get("origin");
+    const host = request.headers.get("host");
+    if (origin && host) {
+      try {
+        const originUrl = new URL(origin);
+        if (originUrl.host !== host) {
+          return NextResponse.json(
+            { error: "CSRF validation failed" },
+            { status: 403 }
+          );
         }
-      );
+      } catch {
+        return NextResponse.json(
+          { error: "CSRF validation failed" },
+          { status: 403 }
+        );
+      }
     }
   }
 
-  return NextResponse.next();
-});
+  // Rate limiting for API routes
+  if (
+    pathname.startsWith("/api/") &&
+    !pathname.startsWith("/api/health") &&
+    !pathname.startsWith("/api/v1/try") &&
+    !pathname.startsWith("/api/webhooks")
+  ) {
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0] ||
+      request.headers.get("x-real-ip") ||
+      "unknown";
+    const key = `${ip}:${pathname}`;
+    const now = Date.now();
+
+    // Simple in-memory rate limit (60 req/min for reads, 10 for writes)
+    const isWrite = ["POST", "PUT", "PATCH", "DELETE"].includes(
+      request.method
+    );
+    const limit = isWrite ? 10 : 60;
+    const windowMs = 60 * 1000;
+
+    // Using globalThis to persist across requests in dev
+    const store = (globalThis as Record<string, unknown>).__rateLimitStore as
+      | Map<string, { count: number; resetAt: number }>
+      | undefined;
+    const rateLimitStore =
+      store || ((globalThis as Record<string, unknown>).__rateLimitStore = new Map<string, { count: number; resetAt: number }>());
+
+    const entry = rateLimitStore.get(key);
+    if (entry && now <= entry.resetAt) {
+      if (entry.count >= limit) {
+        return NextResponse.json(
+          { error: "Too many requests. Please try again later." },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": "60",
+              "X-RateLimit-Limit": String(limit),
+              "X-RateLimit-Remaining": "0",
+            },
+          }
+        );
+      }
+      entry.count++;
+    } else {
+      rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    }
+  }
+
+  // Public routes — no auth required
+  if (isPublicRoute(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Protected routes — check Supabase session
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options)
+          );
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/sign-in";
+    return NextResponse.redirect(url);
+  }
+
+  return supabaseResponse;
+}
 
 export const config = {
   matcher: [

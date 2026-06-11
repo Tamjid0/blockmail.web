@@ -1,23 +1,19 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getUserByClerkId } from "@/lib/services/user";
+import { requireAuth } from "@/lib/auth";
 import { getApiKeys } from "@/lib/services/apikey";
 import { getUsageStats, getRecentUsage } from "@/lib/services/usage";
 import { getWebhooks } from "@/lib/services/webhook";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
-
-  const user = await getUserByClerkId(userId);
-  if (!user) redirect("/sign-in");
+  const auth = await requireAuth();
+  if (!auth) redirect("/sign-in");
 
   const [apiKeys, usage, recentUsage, webhooks] = await Promise.all([
-    getApiKeys(user.id),
-    getUsageStats(user.id, "30d"),
-    getRecentUsage(user.id, 5),
-    getWebhooks(user.id),
+    getApiKeys(auth.dbUser.id),
+    getUsageStats(auth.dbUser.id, "30d"),
+    getRecentUsage(auth.dbUser.id, 5),
+    getWebhooks(auth.dbUser.id),
   ]);
 
   return (

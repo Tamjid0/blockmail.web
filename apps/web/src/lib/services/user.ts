@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Plan } from "@prisma/client";
 
 export interface CreateUserInput {
-  clerkId: string;
+  supabaseId: string;
   email: string;
   name?: string;
 }
@@ -13,9 +13,9 @@ export interface UpdateUserInput {
   plan?: Plan;
 }
 
-export async function getUserByClerkId(clerkId: string) {
+export async function getUserBySupabaseId(supabaseId: string) {
   return prisma.user.findUnique({
-    where: { clerkId },
+    where: { supabaseId },
     include: {
       apiKeys: {
         select: {
@@ -52,7 +52,7 @@ export async function getUserById(id: string) {
 
 export async function createUser(data: CreateUserInput) {
   const existing = await prisma.user.findUnique({
-    where: { clerkId: data.clerkId },
+    where: { supabaseId: data.supabaseId },
   });
 
   if (existing) {
@@ -61,22 +61,22 @@ export async function createUser(data: CreateUserInput) {
 
   return prisma.user.create({
     data: {
-      clerkId: data.clerkId,
+      supabaseId: data.supabaseId,
       email: data.email,
       name: data.name,
     },
   });
 }
 
-export async function updateUser(clerkId: string, data: UpdateUserInput) {
+export async function updateUser(supabaseId: string, data: UpdateUserInput) {
   return prisma.user.update({
-    where: { clerkId },
+    where: { supabaseId },
     data,
   });
 }
 
-export async function deleteUser(clerkId: string) {
+export async function deleteUser(supabaseId: string) {
   return prisma.user.delete({
-    where: { clerkId },
+    where: { supabaseId },
   });
 }

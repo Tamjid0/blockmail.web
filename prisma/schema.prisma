@@ -12,19 +12,19 @@ datasource db {
 // ============================================
 
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
-  name      String?
-  plan      Plan     @default(FREE)
-  apiKeys   ApiKey[]
-  usageLogs UsageLog[]
-  webhooks  Webhook[]
+  id         String   @id @default(cuid())
+  supabaseId String   @unique
+  email      String   @unique
+  name       String?
+  plan       Plan     @default(FREE)
+  apiKeys    ApiKey[]
+  usageLogs  UsageLog[]
+  webhooks   Webhook[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([clerkId])
+  @@index([supabaseId])
   @@index([email])
 }
 

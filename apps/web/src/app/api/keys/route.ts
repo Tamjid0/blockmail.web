@@ -1,31 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { requireAuth } from "@/lib/auth";
 import { createApiKeySchema } from "@/lib/validator";
-import { getApiKeys, createApiKey, revokeApiKey, deleteApiKey } from "@/lib/services/apikey";
-import { getUserByClerkId } from "@/lib/services/user";
+import { getApiKeys, createApiKey, revokeApiKey } from "@/lib/services/apikey";
 
-// GET /api/keys - List all API keys
 export async function GET() {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
+    const auth = await requireAuth();
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
         { status: 401 }
       );
     }
 
-    const user = await getUserByClerkId(userId);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: { code: "USER_NOT_FOUND", message: "User not found" } },
-        { status: 404 }
-      );
-    }
-
-    const keys = await getApiKeys(user.id);
-
+    const keys = await getApiKeys(auth.dbUser.id);
     return NextResponse.json({ success: true, data: keys });
   } catch {
     return NextResponse.json(
@@ -35,23 +23,13 @@ export async function GET() {
   }
 }
 
-// POST /api/keys - Create a new API key
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
+    const auth = await requireAuth();
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
         { status: 401 }
-      );
-    }
-
-    const user = await getUserByClerkId(userId);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: { code: "USER_NOT_FOUND", message: "User not found" } },
-        { status: 404 }
       );
     }
 
@@ -67,7 +45,7 @@ export async function POST(request: NextRequest) {
     const { name, permissions, rate_limit, daily_limit } = result.data;
 
     const newKey = await createApiKey({
-      userId: user.id,
+      userId: auth.dbUser.id,
       name,
       permissions: permissions ?? ["verify"],
       rateLimit: rate_limit ?? 100,
@@ -75,10 +53,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(
-      {
-        success: true,
-        data: { ...newKey, message: "Store this key securely. It will not be shown again." },
-      },
+      { success: true, data: { ...newKey, message: "Store this key securely. It will not be shown again." } },
       { status: 201 }
     );
   } catch {
@@ -89,29 +64,18 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// DELETE /api/keys - Revoke an API key
 export async function DELETE(request: NextRequest) {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
+    const auth = await requireAuth();
+    if (!auth) {
       return NextResponse.json(
         { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
         { status: 401 }
       );
     }
 
-    const user = await getUserByClerkId(userId);
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: { code: "USER_NOT_FOUND", message: "User not found" } },
-        { status: 404 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const keyId = searchParams.get("id");
-
     if (!keyId) {
       return NextResponse.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "Key ID is required" } },

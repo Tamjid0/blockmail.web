@@ -1,20 +1,17 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { getUserByClerkId } from "@/lib/services/user";
+import { requireAuth } from "@/lib/auth";
 import { getApiKeys } from "@/lib/services/apikey";
 import { getWebhooks } from "@/lib/services/webhook";
 import { getUsageStats } from "@/lib/services/usage";
 import { PLAN_LIMITS } from "@/lib/constants";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export default async function SettingsPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
+  const auth = await requireAuth();
+  if (!auth) redirect("/sign-in");
 
-  const user = await getUserByClerkId(userId);
-  if (!user) redirect("/sign-in");
-
+  const user = auth.dbUser;
   const [apiKeys, webhooks, usage] = await Promise.all([
     getApiKeys(user.id),
     getWebhooks(user.id),

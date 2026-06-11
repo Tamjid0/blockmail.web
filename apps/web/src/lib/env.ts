@@ -7,10 +7,10 @@ const envSchema = z.object({
   // Redis (optional for now)
   REDIS_URL: z.string().optional(),
 
-  // Clerk
-  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1, "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required"),
-  CLERK_SECRET_KEY: z.string().min(1, "CLERK_SECRET_KEY is required"),
-  CLERK_WEBHOOK_SECRET: z.string().optional(),
+  // Supabase
+  NEXT_PUBLIC_SUPABASE_URL: z.string().url("NEXT_PUBLIC_SUPABASE_URL must be a valid URL"),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
 
   // Engine
   BLOCKMAIL_ENGINE_URL: z.string().url("BLOCKMAIL_ENGINE_URL must be a valid URL"),
@@ -18,10 +18,6 @@ const envSchema = z.object({
 
   // App
   NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL").optional(),
-
-  // Unkey (optional - self-managed keys)
-  UNKEY_ROOT_KEY: z.string().optional(),
-  UNKEY_URL: z.string().url().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

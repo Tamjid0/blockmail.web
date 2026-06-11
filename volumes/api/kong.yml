@@ -1,0 +1,116 @@
+_format_version: "3.0"
+
+consumers:
+  - username: anon
+    keyauth_credentials:
+      - key: ${ANON_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFub24iLCJyb2xlIjoiYW5vbiIsImlhdCI6MTYyMzYwMDAwMH0.placeholder}
+  - username: service_role
+    keyauth_credentials:
+      - key: ${SERVICE_ROLE_KEY:-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlcnZpY2Vfcm9sZSIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE2MjM2MDAwMDB9.placeholder}
+
+acls:
+  - consumer: anon
+    group: anon
+  - consumer: service_role
+    group: admin
+
+services:
+  - name: auth-v1-open
+    url: http://auth:9999/verify
+    routes:
+      - name: auth-v1-open
+        strip_path: true
+        paths:
+          - /auth/v1/verify
+    plugins:
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: cors
+        config:
+          origins: "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+          headers:
+            - Authorization
+            - Content-Type
+            - X-Client-Info
+          exposed_headers:
+            - X-Total-Count
+          max_age: 3600
+
+  - name: auth-v1-open-callback
+    url: http://auth:9999/callback
+    routes:
+      - name: auth-v1-open-callback
+        strip_path: true
+        paths:
+          - /auth/v1/callback
+
+  - name: auth-v1-open-authorize
+    url: http://auth:9999/authorize
+    routes:
+      - name: auth-v1-open-authorize
+        strip_path: true
+        paths:
+          - /auth/v1/authorize
+
+  - name: auth-v1
+    url: http://auth:9999/
+    routes:
+      - name: auth-v1
+        strip_path: true
+        paths:
+          - /auth/v1/
+    plugins:
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: cors
+        config:
+          origins: "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+          headers:
+            - Authorization
+            - Content-Type
+            - X-Client-Info
+            -apikey
+          exposed_headers:
+            - X-Total-Count
+          max_age: 3600
+
+  - name: rest-v1
+    url: http://rest:3000/
+    routes:
+      - name: rest-v1
+        strip_path: true
+        paths:
+          - /rest/v1/
+    plugins:
+      - name: key-auth
+        config:
+          hide_credentials: false
+      - name: cors
+        config:
+          origins: "*"
+          methods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+          headers:
+            - Authorization
+            - Content-Type
+            - X-Client-Info
+            -apikey
+            -X-Supabase-Api-Version
+          exposed_headers:
+            - X-Total-Count
+          max_age: 3600

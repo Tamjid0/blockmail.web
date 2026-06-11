@@ -6,7 +6,7 @@ export type Plan = "FREE" | "PRO" | "ENTERPRISE";
 
 export interface User {
   id: string;
-  clerkId: string;
+  supabaseId: string;
   email: string;
   name: string | null;
   plan: Plan;
