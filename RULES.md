@@ -13,21 +13,27 @@
 - No shortcuts, no hacks, no temporary solutions
 - If it's not ready for 1M users tomorrow, don't write it
 
-### 2. 100% Type Safety
+### 2. End-to-End Final Product Only
+- Every implementation must be an end-to-end final product — no demos, no prototypes
+- Plan before implementing — understand the full scope before writing code
+- Ask before making critical decisions — never assume, always confirm
+- If you're unsure about architecture, technology, or approach — ask first
+
+### 3. 100% Type Safety
 - TypeScript strict mode — ALWAYS
 - Shared types between frontend and backend (Zod schemas)
 - No `any` types — ever
 - No `as` type assertions — unless absolutely necessary with documented reason
 - Every API response, every database query, every component prop — typed
 
-### 3. 100% Test Coverage
+### 4. 100% Test Coverage
 - Unit tests for every utility, service, and component
 - Integration tests for every API route
 - E2E tests for every critical user flow
 - Tests written BEFORE or ALONGSIDE implementation
 - No PR merged without tests
 
-### 4. Security is Not Optional
+### 5. Security is Not Optional
 - CSRF protection on all state-changing routes
 - Content Security Policy headers
 - Rate limiting (per-user, per-IP, per-API-key)
@@ -39,7 +45,7 @@
 - Audit logging for all sensitive operations
 - No secrets in code — ever
 
-### 5. Design Principles
+### 6. Design Principles
 - Clean, modern, professional
 - NO gradients
 - NO neon colors
@@ -49,14 +55,14 @@
 - Accessible (WCAG 2.1 AA minimum)
 - Fast — no loading spinners for instant operations
 
-### 6. Architecture
+### 7. Architecture
 - Monorepo with Turborepo
 - Shared packages (types, config, UI)
 - Clear separation of concerns
 - Every module has a single responsibility
 - Dependencies flow inward (no circular deps)
 
-### 7. Documentation
+### 8. Documentation
 - Every API endpoint documented
 - Every environment variable documented
 - Every architectural decision documented

@@ -1,5 +1,18 @@
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/sign-out",
+  "/try(.*)",
+  "/docs(.*)",
+  "/api/health",
+  "/api/v1/try",
+  "/api/webhooks(.*)",
+]);
 
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
@@ -48,7 +61,7 @@ function hasValidCsrfToken(request: NextRequest): boolean {
   return true;
 }
 
-export function middleware(request: NextRequest) {
+export default clerkMiddleware(async (_auth, request) => {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/_next") || (pathname.includes(".") && !pathname.startsWith("/api"))) {
@@ -62,7 +75,7 @@ export function middleware(request: NextRequest) {
     );
   }
 
-  if (pathname.startsWith("/api/") && pathname !== "/api/health") {
+  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/health") && !pathname.startsWith("/api/v1/try") && !pathname.startsWith("/api/webhooks")) {
     const rateLimitKey = getRateLimitKey(request);
     const isWrite = ["POST", "PUT", "PATCH", "DELETE"].includes(request.method);
     const limit = isWrite ? 10 : 60;
@@ -84,7 +97,7 @@ export function middleware(request: NextRequest) {
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: [

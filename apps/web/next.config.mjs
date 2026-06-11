@@ -23,12 +23,13 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.com https://*.clerk.dev",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' https://*.clerk.com https://*.clerk.dev data: blob:",
+              "img-src 'self' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev data: blob:",
               "font-src 'self'",
-              "connect-src 'self' https://*.clerk.com https://*.clerk.dev https://api.blockmail.dev",
-              "frame-src 'self' https://*.clerk.com https://*.clerk.dev",
+              "connect-src 'self' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev https://api.blockmail.dev",
+              "frame-src 'self' https://*.clerk.com https://*.clerk.dev https://*.clerk.accounts.dev",
+              "worker-src 'self' blob:;",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
@@ -42,6 +43,10 @@ const nextConfig = {
         headers: [
           { key: "Cache-Control", value: "no-store, no-cache, must-revalidate" },
           { key: "Pragma", value: "no-cache" },
+          { key: "Access-Control-Allow-Origin", value: process.env.NEXT_PUBLIC_APP_URL || "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, DELETE, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, X-API-Key, Authorization" },
+          { key: "Access-Control-Max-Age", value: "86400" },
         ],
       },
     ];

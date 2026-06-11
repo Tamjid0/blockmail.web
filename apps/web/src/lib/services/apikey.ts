@@ -1,0 +1,96 @@
+import crypto from "crypto";
+import { prisma } from "@/lib/prisma";
+
+export interface CreateApiKeyInput {
+  userId: string;
+  name: string;
+  permissions?: string[];
+  rateLimit?: number;
+  dailyLimit?: number;
+}
+
+function generateApiKey(): { key: string; prefix: string; hash: string } {
+  const raw = `bm_live_${crypto.randomBytes(24).toString("hex")}`;
+  const prefix = raw.substring(0, 11);
+  const hash = crypto.createHash("sha256").update(raw).digest("hex");
+  return { key: raw, prefix, hash };
+}
+
+export async function getApiKeys(userId: string) {
+  return prisma.apiKey.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      keyPrefix: true,
+      permissions: true,
+      rateLimit: true,
+      dailyLimit: true,
+      isActive: true,
+      lastUsedAt: true,
+      createdAt: true,
+    },
+  });
+}
+
+export async function getApiKeyById(id: string) {
+  return prisma.apiKey.findUnique({
+    where: { id },
+  });
+}
+
+export async function createApiKey(input: CreateApiKeyInput) {
+  const { key, prefix, hash } = generateApiKey();
+
+  const apiKey = await prisma.apiKey.create({
+    data: {
+      userId: input.userId,
+      unkeyId: hash,
+      name: input.name,
+      keyPrefix: prefix,
+      permissions: input.permissions ?? ["verify"],
+      rateLimit: input.rateLimit ?? 100,
+      dailyLimit: input.dailyLimit ?? 100,
+    },
+    select: {
+      id: true,
+      name: true,
+      keyPrefix: true,
+      permissions: true,
+      rateLimit: true,
+      dailyLimit: true,
+      isActive: true,
+      createdAt: true,
+    },
+  });
+
+  return { ...apiKey, key };
+}
+
+export async function revokeApiKey(id: string) {
+  return prisma.apiKey.update({
+    where: { id },
+    data: { isActive: false },
+  });
+}
+
+export async function deleteApiKey(id: string) {
+  return prisma.apiKey.delete({
+    where: { id },
+  });
+}
+
+export async function getApiKeyByPrefix(keyPrefix: string) {
+  return prisma.apiKey.findFirst({
+    where: { keyPrefix, isActive: true },
+    include: { user: true },
+  });
+}
+
+export async function updateLastUsedAt(id: string) {
+  return prisma.apiKey.update({
+    where: { id },
+    data: { lastUsedAt: new Date() },
+  });
+}

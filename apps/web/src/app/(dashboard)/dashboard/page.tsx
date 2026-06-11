@@ -1,6 +1,25 @@
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getUserByClerkId } from "@/lib/services/user";
+import { getApiKeys } from "@/lib/services/apikey";
+import { getUsageStats, getRecentUsage } from "@/lib/services/usage";
+import { getWebhooks } from "@/lib/services/webhook";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+
+  const user = await getUserByClerkId(userId);
+  if (!user) redirect("/sign-in");
+
+  const [apiKeys, usage, recentUsage, webhooks] = await Promise.all([
+    getApiKeys(user.id),
+    getUsageStats(user.id, "30d"),
+    getRecentUsage(user.id, 5),
+    getWebhooks(user.id),
+  ]);
+
   return (
     <div className="space-y-8">
       <div>
@@ -10,61 +29,40 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Requests" value="12,456" change="+12% from last month" />
-        <StatCard title="Blocked" value="2,341" change="18.8% block rate" />
-        <StatCard title="API Keys" value="3" change="1 active" />
-        <StatCard title="Webhooks" value="2" change="All healthy" />
+        <StatCard title="Total Requests" value={usage.summary.total_requests.toLocaleString()} />
+        <StatCard title="Blocked" value={usage.summary.blocked.toLocaleString()} sub={`${(usage.summary.block_rate * 100).toFixed(1)}% block rate`} />
+        <StatCard title="API Keys" value={String(apiKeys.length)} sub={`${apiKeys.filter((k) => k.isActive).length} active`} />
+        <StatCard title="Webhooks" value={String(webhooks.length)} sub={webhooks.length > 0 ? "All healthy" : "None configured"} />
       </div>
 
-      {/* Recent Activity */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Verifications</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <ActivityRow
-              email="user@example.com"
-              status="allowed"
-              riskScore={0}
-              time="2 minutes ago"
-            />
-            <ActivityRow
-              email="test@mailinator.com"
-              status="blocked"
-              riskScore={95}
-              time="5 minutes ago"
-            />
-            <ActivityRow
-              email="admin@tempmail.com"
-              status="blocked"
-              riskScore={90}
-              time="8 minutes ago"
-            />
-            <ActivityRow
-              email="contact@company.com"
-              status="allowed"
-              riskScore={0}
-              time="12 minutes ago"
-            />
-          </div>
+          {recentUsage.length === 0 ? (
+            <p className="text-sm text-gray-500">No verifications yet. Start using your API to see activity here.</p>
+          ) : (
+            <div className="space-y-4">
+              {recentUsage.map((log) => (
+                <ActivityRow
+                  key={log.email}
+                  email={log.email}
+                  status={log.isDisposable ? "blocked" : "allowed"}
+                  riskScore={log.riskScore}
+                  time={log.createdAt.toISOString()}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
 
-function StatCard({
-  title,
-  value,
-  change,
-}: {
-  title: string;
-  value: string;
-  change: string;
-}) {
+function StatCard({ title, value, sub }: { title: string; value: string; sub?: string }) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -72,44 +70,24 @@ function StatCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold text-gray-900">{value}</div>
-        <p className="text-xs text-gray-600">{change}</p>
+        {sub && <p className="text-xs text-gray-600">{sub}</p>}
       </CardContent>
     </Card>
   );
 }
 
-function ActivityRow({
-  email,
-  status,
-  riskScore,
-  time,
-}: {
-  email: string;
-  status: "allowed" | "blocked";
-  riskScore: number;
-  time: string;
-}) {
+function ActivityRow({ email, status, riskScore, time }: { email: string; status: "allowed" | "blocked"; riskScore: number; time: string }) {
   return (
     <div className="flex items-center justify-between rounded-lg border border-gray-200 p-4">
       <div className="flex items-center gap-4">
-        <div
-          className={`h-2 w-2 rounded-full ${
-            status === "allowed" ? "bg-green-500" : "bg-red-500"
-          }`}
-        />
+        <div className={`h-2 w-2 rounded-full ${status === "allowed" ? "bg-green-500" : "bg-red-500"}`} />
         <div>
           <p className="text-sm font-medium text-gray-900">{email}</p>
-          <p className="text-xs text-gray-600">{time}</p>
+          <p className="text-xs text-gray-600">{new Date(time).toLocaleString()}</p>
         </div>
       </div>
       <div className="text-right">
-        <span
-          className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-            status === "allowed"
-              ? "bg-green-50 text-green-700"
-              : "bg-red-50 text-red-700"
-          }`}
-        >
+        <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${status === "allowed" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
           {status === "allowed" ? "Allowed" : "Blocked"}
         </span>
         <p className="mt-1 text-xs text-gray-600">Risk: {riskScore}</p>

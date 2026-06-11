@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # PostgreSQL Database
   postgres:
@@ -55,19 +53,6 @@ services:
       - RATE_LIMIT_WINDOW_SECONDS=60
     depends_on:
       redis:
-        condition: service_healthy
-
-  # Unkey (Self-hosted)
-  unkey:
-    image: unkeyed/unkey:latest
-    container_name: blockmail-unkey
-    restart: unless-stopped
-    ports:
-      - "3001:3000"
-    environment:
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/unkey
-    depends_on:
-      postgres:
         condition: service_healthy
 
 volumes:
