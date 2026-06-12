@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { cacheGet, cacheSet, cacheDel } from "@/lib/redis";
 
 export interface CreateApiKeyInput {
   userId: string;
@@ -69,23 +70,45 @@ export async function createApiKey(input: CreateApiKeyInput) {
 }
 
 export async function revokeApiKey(id: string) {
-  return prisma.apiKey.update({
+  const key = await prisma.apiKey.findUnique({ where: { id }, select: { keyPrefix: true } });
+  const result = await prisma.apiKey.update({
     where: { id },
     data: { isActive: false },
   });
+  if (key) await invalidateKeyCache(key.keyPrefix);
+  return result;
 }
 
 export async function deleteApiKey(id: string) {
-  return prisma.apiKey.delete({
+  const key = await prisma.apiKey.findUnique({ where: { id }, select: { keyPrefix: true } });
+  const result = await prisma.apiKey.delete({
     where: { id },
   });
+  if (key) await invalidateKeyCache(key.keyPrefix);
+  return result;
 }
 
+const KEY_CACHE_PREFIX = "apikey:";
+
 export async function getApiKeyByPrefix(keyPrefix: string) {
-  return prisma.apiKey.findFirst({
+  const cacheKey = `${KEY_CACHE_PREFIX}${keyPrefix}`;
+  const cached = await cacheGet<Awaited<ReturnType<typeof prisma.apiKey.findFirst>> & { user: { id: string; plan: string } }>(cacheKey);
+  if (cached) return cached;
+
+  const key = await prisma.apiKey.findFirst({
     where: { keyPrefix, isActive: true },
     include: { user: true },
   });
+
+  if (key) {
+    await cacheSet(cacheKey, key, 300);
+  }
+
+  return key;
+}
+
+export async function invalidateKeyCache(keyPrefix: string): Promise<void> {
+  await cacheDel(`${KEY_CACHE_PREFIX}${keyPrefix}`);
 }
 
 export async function updateLastUsedAt(id: string) {

@@ -19,6 +19,7 @@ import {
   getApiKeys as getSelfManagedKeys,
   revokeApiKey as revokeSelfManagedKey,
   getApiKeyByPrefix,
+  invalidateKeyCache,
 } from "@/lib/services/apikey";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
@@ -202,8 +203,13 @@ export async function revokeApiKey(
   userId: string,
   keyId: string
 ): Promise<boolean> {
+  const key = await prisma.apiKey.findUnique({ where: { id: keyId }, select: { keyPrefix: true } });
+  let result: boolean;
   if (isZuploConfigured()) {
-    return revokeZuploKey(userId, keyId);
+    result = await revokeZuploKey(userId, keyId);
+  } else {
+    result = await revokeSelfManaged(keyId);
   }
-  return revokeSelfManaged(keyId);
+  if (key) await invalidateKeyCache(key.keyPrefix);
+  return result;
 }
