@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { checkIpRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_CONFIG } from "@/lib/constants";
 
 const publicRoutes = [
   "/",
@@ -8,12 +10,14 @@ const publicRoutes = [
   "/sign-up",
   "/sign-out",
   "/try",
+  "/verify-email",
   "/docs",
   "/api/health",
   "/api/v1/try",
   "/api/v1/verify",
   "/api/auth/sync",
   "/api/webhooks/stripe",
+  "/auth/confirm",
 ];
 
 function isPublicRoute(pathname: string): boolean {
@@ -60,7 +64,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Rate limiting for API routes
+  // Redis-backed IP rate limiting for API routes (defense in depth)
   if (
     pathname.startsWith("/api/") &&
     !pathname.startsWith("/api/health") &&
@@ -71,41 +75,25 @@ export async function middleware(request: NextRequest) {
       request.headers.get("x-forwarded-for")?.split(",")[0] ||
       request.headers.get("x-real-ip") ||
       "unknown";
-    const key = `${ip}:${pathname}`;
-    const now = Date.now();
 
-    // Simple in-memory rate limit (60 req/min for reads, 10 for writes)
-    const isWrite = ["POST", "PUT", "PATCH", "DELETE"].includes(
-      request.method
+    const rateCheck = await checkIpRateLimit(
+      ip,
+      RATE_LIMIT_CONFIG.edge.perMinute,
+      60
     );
-    const limit = isWrite ? 10 : 60;
-    const windowMs = 60 * 1000;
 
-    // Using globalThis to persist across requests in dev
-    const store = (globalThis as Record<string, unknown>).__rateLimitStore as
-      | Map<string, { count: number; resetAt: number }>
-      | undefined;
-    const rateLimitStore =
-      store || ((globalThis as Record<string, unknown>).__rateLimitStore = new Map<string, { count: number; resetAt: number }>());
-
-    const entry = rateLimitStore.get(key);
-    if (entry && now <= entry.resetAt) {
-      if (entry.count >= limit) {
-        return NextResponse.json(
-          { error: "Too many requests. Please try again later." },
-          {
-            status: 429,
-            headers: {
-              "Retry-After": "60",
-              "X-RateLimit-Limit": String(limit),
-              "X-RateLimit-Remaining": "0",
-            },
-          }
-        );
-      }
-      entry.count++;
-    } else {
-      rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
+    if (!rateCheck.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((rateCheck.resetAt - Date.now()) / 1000)),
+            "X-RateLimit-Limit": String(RATE_LIMIT_CONFIG.edge.perMinute),
+            "X-RateLimit-Remaining": "0",
+          },
+        }
+      );
     }
   }
 

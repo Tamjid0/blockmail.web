@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Header } from "@/components/header";
 
 interface VerifyResult {
   email: string;
@@ -82,27 +83,7 @@ export default function TryPage() {
   return (
     <div className="flex min-h-screen flex-col bg-gray-50/50">
       {/* Header */}
-      <header className="border-b border-gray-100 bg-white/70 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-gray-900">
-            Blockmail
-          </Link>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/sign-in"
-              className="rounded-lg px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/sign-up"
-              className="rounded-lg bg-gray-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800"
-            >
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </header>
+      <Header />
 
       {/* Main */}
       <main className="flex-1 px-6 py-16">

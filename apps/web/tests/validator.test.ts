@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   emailSchema,
   verifyEmailSchema,
-  checkEmailsSchema,
   createApiKeySchema,
   createWebhookSchema,
   usageQuerySchema,
@@ -68,30 +67,6 @@ describe("verifyEmailSchema", () => {
 
   it("rejects missing email", () => {
     expect(verifyEmailSchema.safeParse({}).success).toBe(false);
-  });
-});
-
-describe("checkEmailsSchema", () => {
-  it("accepts array of emails", () => {
-    const result = checkEmailsSchema.safeParse({
-      emails: ["a@test.com", "b@test.com"],
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects empty array", () => {
-    expect(checkEmailsSchema.safeParse({ emails: [] }).success).toBe(false);
-  });
-
-  it("rejects array with invalid email", () => {
-    expect(
-      checkEmailsSchema.safeParse({ emails: ["invalid"] }).success
-    ).toBe(false);
-  });
-
-  it("rejects array larger than 100", () => {
-    const emails = Array(101).fill("test@test.com");
-    expect(checkEmailsSchema.safeParse({ emails }).success).toBe(false);
   });
 });
 

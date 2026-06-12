@@ -65,6 +65,46 @@ export const PLAN_LIMITS = {
 } as const;
 
 // ============================================
+// Rate Limit Configuration
+// ============================================
+// Admin-panel ready: swap this to DB reads when admin panel is built.
+// All values are requests per window.
+
+export const RATE_LIMIT_CONFIG = {
+  /** Try-it page limits (anonymous users, tracked by IP) */
+  tryItAnonymous: {
+    perMinute: 3,
+    perDay: 10,
+  },
+  /** Try-it page limits (logged-in users, tracked by user ID) */
+  tryItAuthenticated: {
+    perMinute: 5,
+    perDay: 25,
+  },
+  /** API verify limits per plan (per API key for minute, per user for day) */
+  api: {
+    FREE: {
+      perMinute: 10,
+      perDay: 100,
+    },
+    PRO: {
+      perMinute: 100,
+      perDay: 10_000,
+    },
+    ENTERPRISE: {
+      perMinute: 1000,
+      perDay: 100_000,
+    },
+  },
+  /** Edge middleware IP rate limit (defense in depth) */
+  edge: {
+    perMinute: 60,
+  },
+} as const;
+
+export type PlanType = keyof typeof RATE_LIMIT_CONFIG.api;
+
+// ============================================
 // Verification Reasons
 // ============================================
 

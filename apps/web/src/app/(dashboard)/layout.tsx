@@ -5,12 +5,19 @@ import { DashboardSidebar } from "@/components/dashboard/sidebar";
 export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
   const auth = await requireAuth();
 
   if (!auth) {
     redirect("/sign-in");
+  }
+
+  // Block unverified users from accessing dashboard
+  // Social sign-ins (Google, GitHub) are pre-verified by Supabase
+  const isEmailVerified = auth.authUser.email_confirmed_at !== null;
+  if (!isEmailVerified) {
+    redirect("/verify-email");
   }
 
   return (

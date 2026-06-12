@@ -4,9 +4,10 @@ import { getApiKeyByPrefix, updateLastUsedAt } from "@/lib/services/apikey";
 import { logUsage } from "@/lib/services/usage";
 import { triggerWebhooks } from "@/lib/services/webhook-delivery";
 import { logAudit, AuditActions } from "@/lib/audit";
-import { API_KEY_HEADER, PLAN_LIMITS } from "@/lib/constants";
+import { API_KEY_HEADER, RATE_LIMIT_CONFIG, type PlanType } from "@/lib/constants";
 import { prisma } from "@/lib/prisma";
-import { checkRateLimit, checkDailyLimit } from "@/lib/rate-limit";
+import { checkComprehensiveRateLimit } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/ip";
 import crypto from "crypto";
 
 const ENGINE_URL = process.env.BLOCKMAIL_ENGINE_URL || "http://localhost:8080";
@@ -15,7 +16,7 @@ const BLOCKMAIL_SECRET = process.env.BLOCKMAIL_SECRET || "";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
+  const ip = getClientIp(request);
 
   // Check if request came through Zuplo gateway (shared secret validation)
   const zuploSecret = request.headers.get("x-blockmail-secret");
@@ -24,10 +25,8 @@ export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate (Zuplo or self-managed)
     let userId: string;
-    let userPlan: string;
+    let userPlan: PlanType;
     let keyId: string;
-    let keyRateLimit: number;
-    let keyDailyLimit: number;
 
     if (isZuploVerified) {
       // Zuplo already authenticated + secret validated
@@ -37,24 +36,18 @@ export async function POST(request: NextRequest) {
         const dbUser = await prisma.user.findUnique({ where: { id: zuploUserId } });
         if (dbUser) {
           userId = dbUser.id;
-          userPlan = dbUser.plan;
-          keyRateLimit = PLAN_LIMITS[dbUser.plan].requestsPerMinute;
-          keyDailyLimit = PLAN_LIMITS[dbUser.plan].requestsPerDay;
+          userPlan = dbUser.plan as PlanType;
           // Find the API key for this user
           const userKey = await prisma.apiKey.findFirst({ where: { userId: dbUser.id } });
           keyId = userKey?.id ?? "zuplo-key";
         } else {
           userId = zuploUserId;
           userPlan = "FREE";
-          keyRateLimit = PLAN_LIMITS.FREE.requestsPerMinute;
-          keyDailyLimit = PLAN_LIMITS.FREE.requestsPerDay;
           keyId = "zuplo-key";
         }
       } else {
         userId = "zuplo-user";
         userPlan = "FREE";
-        keyRateLimit = PLAN_LIMITS.FREE.requestsPerMinute;
-        keyDailyLimit = PLAN_LIMITS.FREE.requestsPerDay;
         keyId = "zuplo-key";
       }
     } else {
@@ -97,29 +90,36 @@ export async function POST(request: NextRequest) {
         );
       }
       userId = lookupKey.user.id;
-      userPlan = lookupKey.user.plan;
+      userPlan = lookupKey.user.plan as PlanType;
       keyId = lookupKey.id;
-      keyRateLimit = lookupKey.rateLimit;
-      keyDailyLimit = lookupKey.dailyLimit;
     }
 
     // 2. Rate limits (skip if Zuplo handles them)
     if (!isZuploVerified) {
-      const minuteCheck = await checkRateLimit(`minute:${keyId}`, keyRateLimit, 60);
-      if (!minuteCheck.allowed) {
-        logAudit({ action: AuditActions.RATE_LIMIT_HIT, userId, apiKeyId: keyId, ip, details: { type: "minute" }, severity: "warn" });
-        return NextResponse.json(
-          { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Rate limit exceeded." } },
-          { status: 429, headers: { "Retry-After": String(Math.ceil((minuteCheck.resetAt - Date.now()) / 1000)) } }
-        );
-      }
-      const dailyCheck = await checkDailyLimit(userId, keyDailyLimit);
-      if (!dailyCheck.allowed) {
-        logAudit({ action: AuditActions.DAILY_LIMIT_HIT, userId, apiKeyId: keyId, ip, details: { type: "daily" }, severity: "warn" });
-        return NextResponse.json(
-          { success: false, error: { code: "DAILY_LIMIT_EXCEEDED", message: "Daily limit exceeded." } },
-          { status: 429 }
-        );
+      const planLimits = RATE_LIMIT_CONFIG.api[userPlan] ?? RATE_LIMIT_CONFIG.api.FREE;
+
+      const rateCheck = await checkComprehensiveRateLimit({
+        minuteKey: `api:minute:${keyId}`,
+        minuteLimit: planLimits.perMinute,
+        dailyKey: `api:daily:${userId}`,
+        dailyLimit: planLimits.perDay,
+      });
+
+      if (!rateCheck.allowed) {
+        if (!rateCheck.minute.allowed) {
+          logAudit({ action: AuditActions.RATE_LIMIT_HIT, userId, apiKeyId: keyId, ip, details: { type: "minute" }, severity: "warn" });
+          return NextResponse.json(
+            { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Rate limit exceeded." } },
+            { status: 429, headers: { "Retry-After": String(Math.ceil((rateCheck.minute.resetAt - Date.now()) / 1000)) } }
+          );
+        }
+        if (!rateCheck.daily.allowed) {
+          logAudit({ action: AuditActions.DAILY_LIMIT_HIT, userId, apiKeyId: keyId, ip, details: { type: "daily" }, severity: "warn" });
+          return NextResponse.json(
+            { success: false, error: { code: "DAILY_LIMIT_EXCEEDED", message: "Daily limit exceeded." } },
+            { status: 429 }
+          );
+        }
       }
     }
 

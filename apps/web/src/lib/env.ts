@@ -5,7 +5,10 @@ const envSchema = z
     // Database
     DATABASE_URL: z.string().url("DATABASE_URL must be a valid PostgreSQL connection string"),
 
-    // Redis
+    // Redis (Upstash for production, in-memory fallback for local dev)
+    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
+    // Legacy Redis vars (optional, kept for backward compat)
     REDIS_URL: z.string().optional(),
     REDIS_TOKEN: z.string().optional(),
 

@@ -24,13 +24,6 @@ export const verifyEmailSchema = z.object({
     .optional(),
 });
 
-export const checkEmailsSchema = z.object({
-  emails: z
-    .array(emailSchema)
-    .min(1, "At least one email is required")
-    .max(100, "Maximum 100 emails per request"),
-});
-
 // ============================================
 // API Key Schemas
 // ============================================
@@ -84,7 +77,6 @@ export const paginationSchema = z.object({
 // ============================================
 
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
-export type CheckEmailsInput = z.infer<typeof checkEmailsSchema>;
 export type CreateApiKeyInput = z.infer<typeof createApiKeySchema>;
 export type CreateWebhookInput = z.infer<typeof createWebhookSchema>;
 export type UsageQueryInput = z.infer<typeof usageQuerySchema>;

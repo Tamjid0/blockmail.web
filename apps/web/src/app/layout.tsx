@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthErrorCatcher } from "@/components/auth-error-catcher";
 
 export const metadata: Metadata = {
   title: "Blockmail - Disposable Email Detection API",
@@ -21,7 +22,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-background font-sans antialiased">{children}</body>
+      <body className="min-h-screen bg-background font-sans antialiased">
+        <AuthErrorCatcher />
+        {children}
+      </body>
     </html>
   );
 }

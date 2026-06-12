@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -11,7 +10,6 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const supabase = createClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -34,6 +32,9 @@ export default function SignUpPage() {
       const { data, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        },
       });
 
       if (authError) {
@@ -42,15 +43,22 @@ export default function SignUpPage() {
         return;
       }
 
+      if (data.user && data.user.email_confirmed_at) {
+        setError("An account already exists with this email. Please sign in instead.");
+        setLoading(false);
+        return;
+      }
+
       if (data.user && !data.session) {
+        // Email confirmation required — sync will happen after confirmation
         setError("Check your email for a confirmation link");
         setLoading(false);
         return;
       }
 
-      // Auto-create user in our database
+      // Auto-create user in our database (runs disposable email check)
       if (data.user) {
-        await fetch("/api/auth/sync", {
+        const syncRes = await fetch("/api/auth/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -59,6 +67,13 @@ export default function SignUpPage() {
             name: data.user.user_metadata?.full_name || null,
           }),
         });
+
+        if (!syncRes.ok) {
+          const syncData = await syncRes.json();
+          setError(syncData.error || "Failed to create account");
+          setLoading(false);
+          return;
+        }
       }
 
       window.location.href = "/dashboard";

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { logUsage } from "@/lib/services/usage";
 import { getApiKeyByPrefix, updateLastUsedAt } from "@/lib/services/apikey";
+import { getClientIp } from "@/lib/ip";
+import { checkComprehensiveRateLimit } from "@/lib/rate-limit";
+import { RATE_LIMIT_CONFIG } from "@/lib/constants";
+import { createServerClient } from "@supabase/ssr";
 
 const ENGINE_URL = process.env.BLOCKMAIL_ENGINE_URL || "http://localhost:8080";
 const ENGINE_API_KEY = process.env.BLOCKMAIL_ENGINE_API_KEY || "development-secret-key";
@@ -21,24 +25,6 @@ const TIER_NAMES = [
   "Pattern Detection",
 ];
 
-// Simple in-memory rate limit for demo (5 requests/minute per IP)
-const demoRateLimit = new Map<string, { count: number; resetAt: number }>();
-
-function checkDemoRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const windowMs = 60 * 1000;
-  const entry = demoRateLimit.get(ip);
-
-  if (!entry || now > entry.resetAt) {
-    demoRateLimit.set(ip, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-
-  if (entry.count >= 5) return false;
-  entry.count++;
-  return true;
-}
-
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
@@ -57,12 +43,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Rate limit by IP
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
-    if (!checkDemoRateLimit(ip)) {
+    // Extract client IP
+    const ip = getClientIp(request);
+
+    // Check if user is authenticated (for higher try-it limits)
+    let userId: string | null = null;
+    try {
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll() {
+              // No-op for read-only check
+            },
+          },
+        }
+      );
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        userId = user.id;
+      }
+    } catch {
+      // Not authenticated — use anonymous limits
+    }
+
+    // Apply rate limits based on auth status
+    const isAuthenticated = userId !== null;
+    const limits = isAuthenticated
+      ? RATE_LIMIT_CONFIG.tryItAuthenticated
+      : RATE_LIMIT_CONFIG.tryItAnonymous;
+    const rateLimitKey = isAuthenticated ? `try:user:${userId}` : `try:ip:${ip}`;
+
+    const rateCheck = await checkComprehensiveRateLimit({
+      minuteKey: rateLimitKey,
+      minuteLimit: limits.perMinute,
+      dailyKey: rateLimitKey,
+      dailyLimit: limits.perDay,
+    });
+
+    if (!rateCheck.allowed) {
+      const retryAfter = rateCheck.minute.allowed
+        ? 60 // Daily limit hit — retry tomorrow
+        : Math.ceil((rateCheck.minute.resetAt - Date.now()) / 1000);
+
       return NextResponse.json(
-        { error: "Demo rate limit exceeded. Please wait a minute." },
-        { status: 429 }
+        {
+          error: isAuthenticated
+            ? "Rate limit exceeded. Please try again later."
+            : "Free demo limit exceeded. Sign in for higher limits.",
+          limit_type: rateCheck.minute.allowed ? "daily" : "minute",
+          retry_after: retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(retryAfter),
+            "X-RateLimit-Limit": String(limits.perMinute),
+            "X-RateLimit-Remaining": String(rateCheck.minute.remaining),
+          },
+        }
       );
     }
 
@@ -157,6 +200,11 @@ export async function POST(request: NextRequest) {
       risk_score: riskScore,
       tier_results: tierResults,
       recommendation,
+      rate_limit: {
+        limit: limits.perMinute,
+        remaining: rateCheck.minute.remaining,
+        reset_at: rateCheck.minute.resetAt,
+      },
     });
   } catch {
     return NextResponse.json(
