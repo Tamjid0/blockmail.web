@@ -15,7 +15,7 @@ export default function AuthConfirmPage() {
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.slice(1));
 
-    // Merge both — Supabase may put error params in query or hash
+    // Check for Supabase error params (expired/invalid link)
     const error = searchParams.get("error") || hashParams.get("error");
     const errorDescription = searchParams.get("error_description") || hashParams.get("error_description");
 
@@ -25,68 +25,35 @@ export default function AuthConfirmPage() {
       return;
     }
 
-    const token = searchParams.get("token") || hashParams.get("access_token");
-    const type = searchParams.get("type") || hashParams.get("type");
-    const code = searchParams.get("code");
+    async function check() {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    if (!token && !type && !code) {
-      // No params — Supabase may have already verified and set the session
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user?.email_confirmed_at) {
-          fetch("/api/auth/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              supabaseId: session.user.id,
-              email: session.user.email,
-              name: session.user.user_metadata?.full_name || null,
-            }),
-          });
-          setStatus("success");
-          setMessage("Your email has been verified! Welcome to Blockmail.");
-        } else {
-          setStatus("error");
-          setMessage("No verification token found. Please check your email for a valid link.");
-        }
-      });
-      return;
-    }
-
-    async function verify() {
-      let result;
-
-      if (code) {
-        result = await supabase.auth.exchangeCodeForSession(code);
-      } else if (token && type) {
-        result = await supabase.auth.verifyOtp({ token_hash: token, type: type as "signup" | "magiclink" | "recovery" });
-      } else {
-        return;
-      }
-
-      if (result.error) {
+      if (!session) {
         setStatus("error");
-        setMessage("Verification failed. The link may have expired.");
+        setMessage("You are not signed in. Please sign up or sign in first.");
         return;
       }
 
-      const user = result.data?.session?.user;
-      if (user) {
+      if (session.user.email_confirmed_at) {
+        // Verified — sync to our DB
         await fetch("/api/auth/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            supabaseId: user.id,
-            email: user.email,
-            name: user.user_metadata?.full_name || null,
+            supabaseId: session.user.id,
+            email: session.user.email,
+            name: session.user.user_metadata?.full_name || null,
           }),
         });
+        setStatus("success");
+        setMessage("Your email has been verified! Welcome to Blockmail.");
+      } else {
+        setStatus("error");
+        setMessage("Your email is not yet verified. Please check your inbox for the confirmation link.");
       }
-
-      setStatus("success");
-      setMessage("Your email has been verified! Welcome to Blockmail.");
     }
 
-    verify();
+    check();
   }, [supabase]);
 
   return (
@@ -99,7 +66,7 @@ export default function AuthConfirmPage() {
         {status === "loading" && (
           <div className="space-y-4">
             <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
-            <p className="text-sm text-gray-600">Verifying your email...</p>
+            <p className="text-sm text-gray-600">Checking your account...</p>
           </div>
         )}
 
@@ -128,7 +95,7 @@ export default function AuthConfirmPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h1 className="text-lg font-semibold text-gray-900">Link Expired</h1>
+            <h1 className="text-lg font-semibold text-gray-900">Not Verified</h1>
             <p className="text-sm text-gray-600">{message}</p>
             <a
               href="/sign-in"
