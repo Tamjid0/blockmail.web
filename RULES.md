@@ -61,6 +61,7 @@
 - Clear separation of concerns
 - Every module has a single responsibility
 - Dependencies flow inward (no circular deps)
+- **Max 300-350 lines per file** — break into smaller files when exceeded
 
 ### 8. Documentation
 - Every API endpoint documented
