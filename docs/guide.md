@@ -37,23 +37,23 @@ cd apps/web
 npm run dev
 ```
 
-The app runs at **http://localhost:3000**.
+The app runs at **http://localhost:3010**.
 
 ## Quick Verification
 
 | Check | Command / URL |
 |-------|---------------|
-| Health | `curl http://localhost:3000/api/health` |
-| Try It (disposable) | `curl -X POST http://localhost:3000/api/v1/try -H "Content-Type: application/json" -d '{"email":"test@mailinator.com"}'` |
-| Try It (clean) | `curl -X POST http://localhost:3000/api/v1/try -H "Content-Type: application/json" -d '{"email":"user@gmail.com"}'` |
-| Sign-in page | Open http://localhost:3000/sign-in |
-| Dashboard | Open http://localhost:3000/dashboard (requires sign-in) |
+| Health | `curl http://localhost:3010/api/health` |
+| Try It (disposable) | `curl -X POST http://localhost:3010/api/v1/try -H "Content-Type: application/json" -d '{"email":"test@mailinator.com"}'` |
+| Try It (clean) | `curl -X POST http://localhost:3010/api/v1/try -H "Content-Type: application/json" -d '{"email":"user@gmail.com"}'` |
+| Sign-in page | Open http://localhost:3010/sign-in |
+| Dashboard | Open http://localhost:3010/dashboard (requires sign-in) |
 
 ## Service Ports
 
 | Service | Port | Purpose | Required |
 |---------|------|---------|----------|
-| Next.js | 3000 | Dashboard, API routes | Yes |
+| Next.js | 3010 | Dashboard, API routes | Yes |
 | Go engine | 8080 | Email verification engine | Yes |
 | PostgreSQL | 5432 | Database | Yes |
 | Redis | 6379 | Rate limiting, caching | Yes |

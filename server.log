@@ -1,0 +1,230 @@
+
+> @blockmail/web@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env
+
+ ✓ Starting...
+ ✓ Ready in 3.1s
+ ○ Compiling /src/middleware ...
+ ✓ Compiled /src/middleware in 508ms (132 modules)
+ ○ Compiling /sign-up ...
+ ✓ Compiled /sign-up in 1689ms (604 modules)
+ GET /sign-up 200 in 2794ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 572ms (607 modules)
+ GET /sw.js 404 in 781ms
+ ✓ Compiled in 2.3s (618 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 531ms (607 modules)
+ GET /sw.js 404 in 826ms
+ GET /sw.js 404 in 64ms
+ GET /_next/static/chunks/app/page.js 404 in 151ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1061ms (651 modules)
+ GET / 200 in 1453ms
+ GET /sw.js 404 in 50ms
+ GET /sign-up 200 in 71ms
+ GET /sw.js 404 in 61ms
+ GET /sign-up? 200 in 47ms
+ GET /sw.js 404 in 58ms
+ GET /sign-up 200 in 53ms
+ GET /sw.js 404 in 24ms
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: EPERM: operation not permitted, rename 'D:\Antigravity\blockmail-saas\apps\web\.next\cache\webpack\client-development\11.pack.gz_' -> 'D:\Antigravity\blockmail-saas\apps\web\.next\cache\webpack\client-development\11.pack.gz'
+ ○ Compiling /auth/confirm ...
+ ✓ Compiled /auth/confirm in 578ms (622 modules)
+ GET /auth/confirm?code=b3d2e0f0-fa98-47a4-8a35-75a4748cd1d0 200 in 858ms
+ GET /sw.js 404 in 60ms
+ ○ Compiling /sign-in ...
+ ✓ Compiled /sign-in in 787ms (630 modules)
+ GET /_next/static/chunks/app/(auth)/sign-in/page.js 404 in 988ms
+ GET /sign-in 200 in 1048ms
+ GET /sw.js 404 in 59ms
+ GET /auth/confirm?error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired 200 in 51ms
+ GET /sw.js 404 in 45ms
+ GET /_next/static/chunks/app/(dashboard)/layout.js 404 in 57ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 790ms (724 modules)
+ ⚠ Fast Refresh had to perform a full reload. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /_next/static/webpack/580fa8fdc3534e0e.webpack.hot-update.json 404 in 84ms
+ GET /_next/static/webpack/webpack.580fa8fdc3534e0e.hot-update.js 404 in 85ms
+ GET /_next/static/webpack/6dfb40a80684aa3c.webpack.hot-update.json 404 in 89ms
+ GET /sw.js 404 in 46ms
+prisma:query SELECT "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt" FROM "public"."User" WHERE "public"."User"."supabaseId" IN ($1,$2) OFFSET $3
+prisma:query SELECT "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt" FROM "public"."User" WHERE "public"."User"."supabaseId" IN ($1,$2) OFFSET $3
+prisma:query INSERT INTO "public"."User" ("id","supabaseId","email","name","plan","createdAt","updatedAt") VALUES ($1,$2,$3,$4,CAST($5::text AS "public"."Plan"),$6,$7) RETURNING "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt"
+prisma:query INSERT INTO "public"."User" ("id","supabaseId","email","name","plan","createdAt","updatedAt") VALUES ($1,$2,$3,$4,CAST($5::text AS "public"."Plan"),$6,$7) RETURNING "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt"
+prisma:error 
+Invalid `prisma.user.create()` invocation:
+
+
+Unique constraint failed on the fields: (`email`)
+ ⨯ PrismaClientKnownRequestError: 
+Invalid `prisma.user.create()` invocation:
+
+
+Unique constraint failed on the fields: (`email`)
+    at async requireAuth (./src/lib/auth.ts:22:21)
+    at async DashboardPage (dashboard/page.tsx:25:18)
+digest: "1710949327"
+ ⨯ PrismaClientKnownRequestError: 
+Invalid `prisma.user.create()` invocation:
+
+
+Unique constraint failed on the fields: (`email`)
+    at async requireAuth (./src/lib/auth.ts:22:21)
+    at async DashboardPage (dashboard/page.tsx:25:18)
+digest: "1710949327"
+ GET /dashboard 500 in 1979ms
+prisma:query SELECT "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt" FROM "public"."User" WHERE "public"."User"."supabaseId" IN ($1,$2) OFFSET $3
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt", "public"."ApiKey"."userId" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."createdAt", "public"."Webhook"."userId" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" = $1 ORDER BY "public"."ApiKey"."createdAt" DESC OFFSET $2
+prisma:query 
+      SELECT
+        TO_CHAR("createdAt", 'YYYY-MM-DD') as date,
+        COUNT(*)::int as requests,
+        SUM(CASE WHEN "isDisposable" = true THEN 1 ELSE 0 END)::int as blocked,
+        SUM(CASE WHEN "isDisposable" = false THEN 1 ELSE 0 END)::int as allowed
+      FROM "UsageLog"
+      WHERE "userId" = $1
+        AND "createdAt" >= $2
+        
+      GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
+      ORDER BY date ASC
+    
+prisma:query SELECT COUNT("id"), AVG("riskScore") FROM (SELECT "public"."UsageLog"."id", "public"."UsageLog"."riskScore" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."UsageLog"."id" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."reason" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."reason" ORDER BY COUNT("public"."UsageLog"."id") DESC OFFSET $3
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."failureCount", "public"."Webhook"."createdAt" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" = $1 ORDER BY "public"."Webhook"."createdAt" DESC OFFSET $2
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."apiKeyId" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."apiKeyId" OFFSET $3
+prisma:query SELECT "public"."UsageLog"."id", "public"."UsageLog"."email", "public"."UsageLog"."isDisposable", "public"."UsageLog"."riskScore", "public"."UsageLog"."createdAt" FROM "public"."UsageLog" WHERE "public"."UsageLog"."userId" = $1 ORDER BY "public"."UsageLog"."createdAt" DESC LIMIT $2 OFFSET $3
+ GET /dashboard 200 in 495ms
+ GET /sw.js 404 in 78ms
+ GET /sw.js 404 in 45ms
+ ✓ Compiled in 715ms (735 modules)
+prisma:query SELECT 1
+prisma:query SELECT "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt" FROM "public"."User" WHERE "public"."User"."supabaseId" IN ($1,$2) OFFSET $3
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt", "public"."ApiKey"."userId" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."createdAt", "public"."Webhook"."userId" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" IN ($1) OFFSET $2
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."apiKeyId" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."apiKeyId" OFFSET $3
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" = $1 ORDER BY "public"."ApiKey"."createdAt" DESC OFFSET $2
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."reason" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."reason" ORDER BY COUNT("public"."UsageLog"."id") DESC OFFSET $3
+prisma:query 
+      SELECT
+        TO_CHAR("createdAt", 'YYYY-MM-DD') as date,
+        COUNT(*)::int as requests,
+        SUM(CASE WHEN "isDisposable" = true THEN 1 ELSE 0 END)::int as blocked,
+        SUM(CASE WHEN "isDisposable" = false THEN 1 ELSE 0 END)::int as allowed
+      FROM "UsageLog"
+      WHERE "userId" = $1
+        AND "createdAt" >= $2
+        
+      GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
+      ORDER BY date ASC
+    
+prisma:query SELECT "public"."UsageLog"."id", "public"."UsageLog"."email", "public"."UsageLog"."isDisposable", "public"."UsageLog"."riskScore", "public"."UsageLog"."createdAt" FROM "public"."UsageLog" WHERE "public"."UsageLog"."userId" = $1 ORDER BY "public"."UsageLog"."createdAt" DESC LIMIT $2 OFFSET $3
+prisma:query SELECT COUNT("id"), AVG("riskScore") FROM (SELECT "public"."UsageLog"."id", "public"."UsageLog"."riskScore" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."failureCount", "public"."Webhook"."createdAt" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" = $1 ORDER BY "public"."Webhook"."createdAt" DESC OFFSET $2
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."UsageLog"."id" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+ ✓ Compiled /_not-found in 242ms (724 modules)
+ GET /sw.js 404 in 378ms
+ GET /sw.js 404 in 46ms
+ ✓ Compiled in 665ms (735 modules)
+prisma:query SELECT "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt" FROM "public"."User" WHERE "public"."User"."supabaseId" IN ($1,$2) OFFSET $3
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt", "public"."ApiKey"."userId" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."createdAt", "public"."Webhook"."userId" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" = $1 ORDER BY "public"."ApiKey"."createdAt" DESC OFFSET $2
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."failureCount", "public"."Webhook"."createdAt" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" = $1 ORDER BY "public"."Webhook"."createdAt" DESC OFFSET $2
+prisma:query SELECT "public"."UsageLog"."id", "public"."UsageLog"."email", "public"."UsageLog"."isDisposable", "public"."UsageLog"."riskScore", "public"."UsageLog"."createdAt" FROM "public"."UsageLog" WHERE "public"."UsageLog"."userId" = $1 ORDER BY "public"."UsageLog"."createdAt" DESC LIMIT $2 OFFSET $3
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."UsageLog"."id" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."apiKeyId" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."apiKeyId" OFFSET $3
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."reason" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."reason" ORDER BY COUNT("public"."UsageLog"."id") DESC OFFSET $3
+prisma:query SELECT COUNT("id"), AVG("riskScore") FROM (SELECT "public"."UsageLog"."id", "public"."UsageLog"."riskScore" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query 
+      SELECT
+        TO_CHAR("createdAt", 'YYYY-MM-DD') as date,
+        COUNT(*)::int as requests,
+        SUM(CASE WHEN "isDisposable" = true THEN 1 ELSE 0 END)::int as blocked,
+        SUM(CASE WHEN "isDisposable" = false THEN 1 ELSE 0 END)::int as allowed
+      FROM "UsageLog"
+      WHERE "userId" = $1
+        AND "createdAt" >= $2
+        
+      GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
+      ORDER BY date ASC
+    
+ ✓ Compiled in 403ms (735 modules)
+prisma:query SELECT "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt" FROM "public"."User" WHERE "public"."User"."supabaseId" IN ($1,$2) OFFSET $3
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt", "public"."ApiKey"."userId" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."createdAt", "public"."Webhook"."userId" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" IN ($1) OFFSET $2
+prisma:query 
+      SELECT
+        TO_CHAR("createdAt", 'YYYY-MM-DD') as date,
+        COUNT(*)::int as requests,
+        SUM(CASE WHEN "isDisposable" = true THEN 1 ELSE 0 END)::int as blocked,
+        SUM(CASE WHEN "isDisposable" = false THEN 1 ELSE 0 END)::int as allowed
+      FROM "UsageLog"
+      WHERE "userId" = $1
+        AND "createdAt" >= $2
+        
+      GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
+      ORDER BY date ASC
+    
+prisma:query SELECT COUNT("id"), AVG("riskScore") FROM (SELECT "public"."UsageLog"."id", "public"."UsageLog"."riskScore" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."reason" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."reason" ORDER BY COUNT("public"."UsageLog"."id") DESC OFFSET $3
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."failureCount", "public"."Webhook"."createdAt" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" = $1 ORDER BY "public"."Webhook"."createdAt" DESC OFFSET $2
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."apiKeyId" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."apiKeyId" OFFSET $3
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."UsageLog"."id" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" = $1 ORDER BY "public"."ApiKey"."createdAt" DESC OFFSET $2
+prisma:query SELECT "public"."UsageLog"."id", "public"."UsageLog"."email", "public"."UsageLog"."isDisposable", "public"."UsageLog"."riskScore", "public"."UsageLog"."createdAt" FROM "public"."UsageLog" WHERE "public"."UsageLog"."userId" = $1 ORDER BY "public"."UsageLog"."createdAt" DESC LIMIT $2 OFFSET $3
+ ✓ Compiled /_not-found in 399ms (724 modules)
+ GET /sw.js 404 in 517ms
+ GET /sw.js 404 in 44ms
+ ✓ Compiled in 307ms (738 modules)
+prisma:query SELECT 1
+prisma:query SELECT "public"."User"."id", "public"."User"."supabaseId", "public"."User"."email", "public"."User"."name", "public"."User"."plan"::text, "public"."User"."stripeCustomerId", "public"."User"."stripeSubscriptionId", "public"."User"."createdAt", "public"."User"."updatedAt" FROM "public"."User" WHERE "public"."User"."supabaseId" IN ($1,$2) OFFSET $3
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt", "public"."ApiKey"."userId" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" IN ($1) OFFSET $2
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."createdAt", "public"."Webhook"."userId" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" IN ($1) OFFSET $2
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT 1
+prisma:query SELECT "public"."ApiKey"."id", "public"."ApiKey"."name", "public"."ApiKey"."keyPrefix", "public"."ApiKey"."permissions", "public"."ApiKey"."rateLimit", "public"."ApiKey"."dailyLimit", "public"."ApiKey"."isActive", "public"."ApiKey"."lastUsedAt", "public"."ApiKey"."createdAt" FROM "public"."ApiKey" WHERE "public"."ApiKey"."userId" = $1 ORDER BY "public"."ApiKey"."createdAt" DESC OFFSET $2
+prisma:query SELECT COUNT("id"), AVG("riskScore") FROM (SELECT "public"."UsageLog"."id", "public"."UsageLog"."riskScore" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."UsageLog"."id" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) OFFSET $3) AS "sub"
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."reason" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."reason" ORDER BY COUNT("public"."UsageLog"."id") DESC OFFSET $3
+prisma:query SELECT "public"."UsageLog"."id", "public"."UsageLog"."email", "public"."UsageLog"."isDisposable", "public"."UsageLog"."riskScore", "public"."UsageLog"."createdAt" FROM "public"."UsageLog" WHERE "public"."UsageLog"."userId" = $1 ORDER BY "public"."UsageLog"."createdAt" DESC LIMIT $2 OFFSET $3
+prisma:query SELECT COUNT("public"."UsageLog"."id"), "public"."UsageLog"."apiKeyId" FROM "public"."UsageLog" WHERE ("public"."UsageLog"."userId" = $1 AND "public"."UsageLog"."createdAt" >= $2) GROUP BY "public"."UsageLog"."apiKeyId" OFFSET $3
+prisma:query SELECT "public"."Webhook"."id", "public"."Webhook"."url", "public"."Webhook"."events", "public"."Webhook"."isActive", "public"."Webhook"."lastTriggeredAt", "public"."Webhook"."failureCount", "public"."Webhook"."createdAt" FROM "public"."Webhook" WHERE "public"."Webhook"."userId" = $1 ORDER BY "public"."Webhook"."createdAt" DESC OFFSET $2
+prisma:query 
+      SELECT
+        TO_CHAR("createdAt", 'YYYY-MM-DD') as date,
+        COUNT(*)::int as requests,
+        SUM(CASE WHEN "isDisposable" = true THEN 1 ELSE 0 END)::int as blocked,
+        SUM(CASE WHEN "isDisposable" = false THEN 1 ELSE 0 END)::int as allowed
+      FROM "UsageLog"
+      WHERE "userId" = $1
+        AND "createdAt" >= $2
+        
+      GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
+      ORDER BY date ASC
+    
+ GET /sw.js 404 in 43ms
+ ✓ Compiled in 384ms (735 modules)
+ ✓ Compiled in 104ms (335 modules)
+ ✓ Compiled in 72ms (335 modules)
+ ✓ Compiled in 406ms (738 modules)
+[?25h

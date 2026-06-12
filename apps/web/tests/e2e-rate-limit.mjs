@@ -3,14 +3,14 @@
  * Tests anonymous vs authenticated try-it rate limits.
  *
  * Run with: node tests/e2e-rate-limit.mjs
- * Requires: dev server running on http://localhost:3000
+ * Requires: dev server running on http://localhost:3010
  *
  * NOTE: Rate limiting requires Redis (Upstash in production).
  * In local dev without Upstash token, rate limiter fails open (allows all).
  * These tests verify the rate limiting code path and auth flow work correctly.
  */
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = "http://localhost:3010";
 const TEST_EMAIL = "tamjid11220@gmail.com";
 const TEST_PASSWORD = "10203040";
 

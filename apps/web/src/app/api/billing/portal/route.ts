@@ -19,7 +19,7 @@ export async function POST() {
       );
     }
 
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3010";
     const session = await createPortalSession(auth.dbUser.id, origin);
 
     return NextResponse.json({ success: true, data: { url: session.url } });

@@ -21,6 +21,7 @@ import {
   getApiKeyByPrefix,
 } from "@/lib/services/apikey";
 import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
 
 // ============================================
 // Types
@@ -73,11 +74,12 @@ async function createZuploKey(
   // The new Zuplo key — use keyId if available (new key), else fall back to consumer ID
   const zuploKeyId = result.keyId || result.consumer.apiKeys?.[0]?.id || result.consumer.id;
 
-  // Store each key individually in our DB
+  // Store each key individually in our DB (hash the key for verification)
+  const keyHash = crypto.createHash("sha256").update(result.key).digest("hex");
   await prisma.apiKey.create({
     data: {
       userId,
-      unkeyId: zuploKeyId,
+      unkeyId: keyHash,
       name,
       keyPrefix: result.key.substring(0, 11),
       permissions: ["verify"],

@@ -19,7 +19,7 @@ export const methodColors: Record<HttpMethod, string> = {
 export const endpoints: Endpoint[] = [
   {
     method: "POST",
-    path: "/v1/verify",
+    path: "/api/v1/verify",
     title: "Verify Email",
     description:
       "Check if an email address is disposable. Returns verification result with risk score and tier analysis.",
@@ -28,41 +28,79 @@ export const endpoints: Endpoint[] = [
   "email": "user@example.com"
 }`,
     responseExample: `{
-  "email": "user@example.com",
-  "is_disposable": false,
-  "risk_score": 0,
-  "analysis": {
-    "tier_triggered": 0,
-    "reason": "allowed",
-    "domain": "example.com"
+  "success": true,
+  "data": {
+    "email": "user@example.com",
+    "is_disposable": false,
+    "risk_score": 0,
+    "analysis": {
+      "tier_triggered": 0,
+      "reason": "allowed",
+      "domain": "example.com"
+    }
+  },
+  "meta": {
+    "request_id": "req_abc123",
+    "latency_ms": 12
+  }
+}`,
+  },
+  {
+    method: "POST",
+    path: "/api/v1/check",
+    title: "Check Multiple Emails",
+    description:
+      "Verify multiple emails in a single request (max 100). Returns results for each email with a summary.",
+    auth: true,
+    requestExample: `{
+  "emails": [
+    "user1@example.com",
+    "user2@mailinator.com"
+  ]
+}`,
+    responseExample: `{
+  "success": true,
+  "data": {
+    "results": [
+      {
+        "email": "user1@example.com",
+        "is_disposable": false,
+        "risk_score": 0
+      },
+      {
+        "email": "user2@mailinator.com",
+        "is_disposable": true,
+        "risk_score": 95
+      }
+    ],
+    "summary": {
+      "total": 2,
+      "disposable": 1,
+      "clean": 1
+    }
+  },
+  "meta": {
+    "request_id": "req_def456",
+    "latency_ms": 45
   }
 }`,
   },
   {
     method: "GET",
-    path: "/v1/lists/stats",
-    title: "Blocklist Stats",
-    description:
-      "Get statistics about the disposable email blocklist. Returns total domains tracked and last update time.",
-    auth: true,
-    requestExample: "",
-    responseExample: `{
-  "total_domains": 30278,
-  "last_updated": "2026-06-10T19:05:03Z"
-}`,
-  },
-  {
-    method: "GET",
-    path: "/healthz",
+    path: "/api/health",
     title: "Health Check",
     description:
-      "Check if the service is healthy. Returns connectivity status for Redis and local storage.",
+      "Check if the service is healthy. Returns connectivity status for all services.",
     auth: false,
     requestExample: "",
     responseExample: `{
   "status": "healthy",
-  "redis": "connected",
-  "storage": "connected"
+  "timestamp": "2026-06-10T12:00:00Z",
+  "services": {
+    "database": "connected",
+    "redis": "connected",
+    "engine": "connected"
+  }
 }`,
   },
 ];
@@ -72,7 +110,7 @@ export const codeExamples: Record<string, { label: string; code: string }[]> = {
     {
       label: "Verify Email",
       code: [
-        "curl -X POST https://api.blockmail.dev/v1/verify \\",
+        "curl -X POST https://api.blockmail.dev/api/v1/verify \\",
         '  -H "X-API-Key: your_api_key" \\',
         '  -H "Content-Type: application/json" \\',
         "  -d " + String.raw`'{"email": "user@example.com"}'`,
@@ -155,8 +193,8 @@ export const codeExamples: Record<string, { label: string; code: string }[]> = {
 
 export const rateLimitData = [
   { plan: "Free", perMinute: "10", perDay: "100" },
-  { plan: "Pro", perMinute: "100", perDay: "10,000" },
-  { plan: "Enterprise", perMinute: "1,000", perDay: "Unlimited" },
+  { plan: "Pro", perMinute: "100", perDay: "1,000" },
+  { plan: "Enterprise", perMinute: "Custom", perDay: "Custom" },
 ];
 
 export const errorCodes = [

@@ -59,12 +59,6 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         );
       }
-      if (!apiKey.startsWith("bm_live_")) {
-        return NextResponse.json(
-          { success: false, error: { code: "INVALID_API_KEY", message: "Invalid API key format." } },
-          { status: 401 }
-        );
-      }
       const keyPrefix = apiKey.substring(0, 11);
       const lookupKey = await getApiKeyByPrefix(keyPrefix);
       if (!lookupKey) {
@@ -75,7 +69,7 @@ export async function POST(request: NextRequest) {
         );
       }
       const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
-      if (keyHash !== lookupKey.unkeyId) {
+      if (keyHash !== lookupKey.unkeyId && apiKey !== lookupKey.unkeyId) {
         logAudit({ action: AuditActions.API_KEY_INVALID, userId: lookupKey.userId, apiKeyId: lookupKey.id, ip, details: { reason: "hash_mismatch" }, severity: "warn" });
         return NextResponse.json(
           { success: false, error: { code: "INVALID_API_KEY", message: "Invalid API key." } },

@@ -5,7 +5,7 @@
 export const APP_NAME = "Blockmail";
 export const APP_DESCRIPTION =
   "Block disposable and temporary emails from your signup flows with our powerful 6-tier verification engine.";
-export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+export const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3010";
 
 // ============================================
 // API Constants
