@@ -24,6 +24,25 @@ export interface DailyRow {
   allowed: number;
 }
 
+export interface RequestLogEntry {
+  id: string;
+  email: string;
+  domain: string;
+  isDisposable: boolean;
+  riskScore: number;
+  reason: string;
+  apiKeyId: string;
+  latencyMs: number;
+  createdAt: string;
+}
+
+export interface DomainStat {
+  domain: string;
+  total: number;
+  blocked: number;
+  allowed: number;
+}
+
 export async function logUsage(data: LogUsageInput) {
   const emailHash = crypto.createHash("sha256").update(data.email).digest("hex");
   const requestId = `req_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
@@ -65,7 +84,7 @@ export async function getUsageStats(userId: string, period: string, keyFilter?: 
   const whereBase = { userId, createdAt: { gte: since } };
   const where = keyFilter ? { ...whereBase, apiKeyId: keyFilter } : whereBase;
 
-  const [summary, rawDaily, byReason, byKey] = await Promise.all([
+  const [summary, rawDaily, byReason, byKey, avgRisk, byDomainRaw] = await Promise.all([
     prisma.usageLog.aggregate({
       where,
       _count: { id: true },
@@ -98,6 +117,26 @@ export async function getUsageStats(userId: string, period: string, keyFilter?: 
       where: keyFilter ? { userId, apiKeyId: keyFilter, createdAt: { gte: since } } : { userId, createdAt: { gte: since } },
       _count: { id: true },
     }),
+
+    prisma.usageLog.aggregate({
+      where,
+      _avg: { riskScore: true },
+    }),
+
+    prisma.$queryRaw`
+      SELECT
+        "domain",
+        COUNT(*)::int as total,
+        SUM(CASE WHEN "isDisposable" = true THEN 1 ELSE 0 END)::int as blocked,
+        SUM(CASE WHEN "isDisposable" = false THEN 1 ELSE 0 END)::int as allowed
+      FROM "UsageLog"
+      WHERE "userId" = ${userId}
+        AND "createdAt" >= ${since}
+        ${keyFilter ? Prisma.sql`AND "apiKeyId" = ${keyFilter}` : Prisma.empty}
+      GROUP BY "domain"
+      ORDER BY total DESC
+      LIMIT 10
+    `,
   ]);
 
   const daily = rawDaily as DailyRow[];
@@ -119,6 +158,7 @@ export async function getUsageStats(userId: string, period: string, keyFilter?: 
       blocked,
       allowed: totalRequests - blocked,
       block_rate: totalRequests > 0 ? blocked / totalRequests : 0,
+      avg_risk_score: Math.round((avgRisk._avg.riskScore ?? 0) * 10) / 10,
     },
     daily,
     by_reason: byReason.map((r) => ({
@@ -126,6 +166,7 @@ export async function getUsageStats(userId: string, period: string, keyFilter?: 
       count: r._count.id,
     })),
     by_key: byKeyWithBlocked,
+    by_domain: (byDomainRaw as DomainStat[]),
   };
 }
 
@@ -141,4 +182,43 @@ export async function getRecentUsage(userId: string, limit: number = 10) {
       createdAt: true,
     },
   });
+}
+
+export async function getRequestLog(
+  userId: string,
+  opts: { page: number; limit: number; keyFilter?: string; statusFilter?: "blocked" | "allowed" }
+): Promise<{ entries: RequestLogEntry[]; total: number; page: number; totalPages: number }> {
+  const { page, limit, keyFilter, statusFilter } = opts;
+  const where: Prisma.UsageLogWhereInput = { userId };
+  if (keyFilter) where.apiKeyId = keyFilter;
+  if (statusFilter === "blocked") where.isDisposable = true;
+  if (statusFilter === "allowed") where.isDisposable = false;
+
+  const [entries, total] = await Promise.all([
+    prisma.usageLog.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        email: true,
+        domain: true,
+        isDisposable: true,
+        riskScore: true,
+        reason: true,
+        apiKeyId: true,
+        latencyMs: true,
+        createdAt: true,
+      },
+    }),
+    prisma.usageLog.count({ where }),
+  ]);
+
+  return {
+    entries: entries.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
+    total,
+    page,
+    totalPages: Math.ceil(total / limit),
+  };
 }

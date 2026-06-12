@@ -61,6 +61,8 @@ export const createWebhookSchema = z.object({
 export const usageQuerySchema = z.object({
   period: z.enum(["7d", "30d", "90d"]).default("30d").optional(),
   key_id: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
 });
 
 // ============================================
