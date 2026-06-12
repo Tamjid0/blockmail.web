@@ -12,6 +12,7 @@ const navigation = [
   { name: "API Keys", href: "/dashboard/keys" },
   { name: "Usage", href: "/dashboard/usage" },
   { name: "Webhooks", href: "/dashboard/webhooks" },
+  { name: "Audit Log", href: "/dashboard/audit" },
   { name: "Settings", href: "/dashboard/settings" },
 ];
 

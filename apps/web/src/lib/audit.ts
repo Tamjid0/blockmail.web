@@ -1,41 +1,48 @@
+import { prisma } from "@/lib/prisma";
+
 export interface AuditLogEntry {
   timestamp: string;
   action: string;
   userId?: string;
   apiKeyId?: string;
   ip?: string;
-  userAgent?: string;
   details?: Record<string, unknown>;
   severity: "info" | "warn" | "error";
 }
 
-const auditLog: AuditLogEntry[] = [];
-
 export function logAudit(entry: Omit<AuditLogEntry, "timestamp">): void {
-  const logEntry: AuditLogEntry = {
-    ...entry,
-    timestamp: new Date().toISOString(),
-  };
-
-  // In-memory store (production would use a logging service)
-  auditLog.push(logEntry);
-
-  // Keep only last 1000 entries in memory
-  if (auditLog.length > 1000) {
-    auditLog.shift();
-  }
-
   // Console output for development
-  const prefix = logEntry.severity === "error" ? "🔴" : logEntry.severity === "warn" ? "🟡" : "🟢";
-  console.log(`${prefix} [AUDIT] ${logEntry.action} | user=${logEntry.userId ?? "N/A"} | key=${logEntry.apiKeyId ?? "N/A"} | ip=${logEntry.ip ?? "N/A"}`);
+  const prefix = entry.severity === "error" ? "🔴" : entry.severity === "warn" ? "🟡" : "🟢";
+  console.log(`${prefix} [AUDIT] ${entry.action} | user=${entry.userId ?? "N/A"} | key=${entry.apiKeyId ?? "N/A"} | ip=${entry.ip ?? "N/A"}`);
+
+  // Persist to database (fire and forget)
+  prisma.auditLog.create({
+    data: {
+      action: entry.action,
+      severity: entry.severity,
+      userId: entry.userId ?? null,
+      apiKeyId: entry.apiKeyId ?? null,
+      ip: entry.ip ?? null,
+      details: entry.details ?? undefined,
+    },
+  }).catch((err) => {
+    console.error("[AUDIT] Failed to persist audit log:", err.message);
+  });
 }
 
-export function getAuditLogs(limit: number = 100): AuditLogEntry[] {
-  return auditLog.slice(-limit);
-}
+export async function getAuditLogs(params: {
+  userId?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const { userId, limit = 100, offset = 0 } = params;
 
-export function clearAuditLogs(): void {
-  auditLog.length = 0;
+  return prisma.auditLog.findMany({
+    where: userId ? { userId } : undefined,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    skip: offset,
+  });
 }
 
 // Specific audit actions

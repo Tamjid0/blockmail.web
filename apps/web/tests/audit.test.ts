@@ -1,12 +1,22 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { logAudit, getAuditLogs, clearAuditLogs, AuditActions } from "@/lib/audit";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { AuditActions } from "@/lib/audit";
+
+const mockCreate = vi.hoisted(() => vi.fn().mockResolvedValue({}));
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    auditLog: { create: mockCreate },
+  },
+}));
+
+const { logAudit } = await import("@/lib/audit");
 
 describe("Audit Logging", () => {
   beforeEach(() => {
-    clearAuditLogs();
+    vi.clearAllMocks();
   });
 
-  it("logs an audit entry", () => {
+  it("logs an audit entry to database", () => {
     logAudit({
       action: AuditActions.API_KEY_USED,
       userId: "user_123",
@@ -15,12 +25,17 @@ describe("Audit Logging", () => {
       severity: "info",
     });
 
-    const logs = getAuditLogs(10);
-    expect(logs.length).toBe(1);
-    expect(logs[0].action).toBe("api_key.used");
-    expect(logs[0].userId).toBe("user_123");
-    expect(logs[0].ip).toBe("127.0.0.1");
-    expect(logs[0].timestamp).toBeDefined();
+    expect(mockCreate).toHaveBeenCalledOnce();
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: {
+        action: "api_key.used",
+        severity: "info",
+        userId: "user_123",
+        apiKeyId: "key_456",
+        ip: "127.0.0.1",
+        details: undefined,
+      },
+    });
   });
 
   it("logs warning entries", () => {
@@ -30,42 +45,46 @@ describe("Audit Logging", () => {
       severity: "warn",
     });
 
-    const logs = getAuditLogs(10);
-    expect(logs[0].severity).toBe("warn");
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ severity: "warn" }),
+    });
   });
 
-  it("logs error entries", () => {
+  it("logs error entries with details", () => {
     logAudit({
       action: AuditActions.WEBHOOK_FAILED,
       severity: "error",
       details: { url: "https://example.com", error: "timeout" },
     });
 
-    const logs = getAuditLogs(10);
-    expect(logs[0].severity).toBe("error");
-    expect(logs[0].details).toEqual({ url: "https://example.com", error: "timeout" });
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        severity: "error",
+        details: { url: "https://example.com", error: "timeout" },
+      }),
+    });
   });
 
-  it("returns logs in order", () => {
-    logAudit({ action: "first", severity: "info" });
-    logAudit({ action: "second", severity: "info" });
-    logAudit({ action: "third", severity: "info" });
+  it("handles null userId and apiKeyId", () => {
+    logAudit({
+      action: "test.action",
+      severity: "info",
+    });
 
-    const logs = getAuditLogs(10);
-    expect(logs.length).toBe(3);
-    expect(logs[0].action).toBe("first");
-    expect(logs[2].action).toBe("third");
+    expect(mockCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        userId: null,
+        apiKeyId: null,
+      }),
+    });
   });
 
-  it("respects limit parameter", () => {
-    for (let i = 0; i < 20; i++) {
-      logAudit({ action: `action_${i}`, severity: "info" });
-    }
+  it("does not throw on database failure", () => {
+    mockCreate.mockRejectedValueOnce(new Error("DB error"));
 
-    const logs = getAuditLogs(5);
-    expect(logs.length).toBe(5);
-    expect(logs[0].action).toBe("action_15");
-    expect(logs[4].action).toBe("action_19");
+    expect(() => {
+      logAudit({ action: "test", severity: "info" });
+    }).not.toThrow();
   });
 });
 

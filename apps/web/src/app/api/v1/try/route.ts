@@ -6,6 +6,7 @@ import { getApiKeyByPrefix, updateLastUsedAt } from "@/lib/services/apikey";
 const ENGINE_URL = process.env.BLOCKMAIL_ENGINE_URL || "http://localhost:8080";
 const ENGINE_API_KEY = process.env.BLOCKMAIL_ENGINE_API_KEY || "development-secret-key";
 const DEMO_KEY_PREFIX = "bm_live_demo";
+const BLOCKMAIL_SECRET = process.env.BLOCKMAIL_SECRET || "";
 
 const trySchema = z.object({
   email: z.string().email("Invalid email format"),
@@ -42,6 +43,20 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
+    // Verify request came through gateway (skip if no secret configured — dev mode)
+    // Also skip if request is from same origin (browser direct call, not through Zuplo)
+    const zuploSecret = request.headers.get("x-blockmail-secret");
+    const origin = request.headers.get("origin");
+    const host = request.headers.get("host");
+    const isSameOrigin = origin && host && new URL(origin).host === host;
+
+    if (BLOCKMAIL_SECRET !== "" && zuploSecret !== BLOCKMAIL_SECRET && !isSameOrigin) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     // Rate limit by IP
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
     if (!checkDemoRateLimit(ip)) {

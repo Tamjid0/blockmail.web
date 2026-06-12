@@ -17,6 +17,11 @@ model User {
   email      String   @unique
   name       String?
   plan       Plan     @default(FREE)
+
+  // Stripe
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?
+
   apiKeys    ApiKey[]
   usageLogs  UsageLog[]
   webhooks   Webhook[]
@@ -141,4 +146,25 @@ enum Plan {
   FREE
   PRO
   ENTERPRISE
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id     String @id @default(cuid())
+  userId String?
+  apiKeyId String?
+
+  action   String  // "api_key.used", "api_key.invalid", "rate_limit.hit", etc.
+  severity String  @default("info") // "info", "warn", "error"
+  details  Json?   // Arbitrary JSON payload
+  ip       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
 }

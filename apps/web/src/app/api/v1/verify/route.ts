@@ -4,159 +4,126 @@ import { getApiKeyByPrefix, updateLastUsedAt } from "@/lib/services/apikey";
 import { logUsage } from "@/lib/services/usage";
 import { triggerWebhooks } from "@/lib/services/webhook-delivery";
 import { logAudit, AuditActions } from "@/lib/audit";
-import { RATE_LIMITS, API_KEY_HEADER } from "@/lib/constants";
+import { API_KEY_HEADER, PLAN_LIMITS } from "@/lib/constants";
+import { prisma } from "@/lib/prisma";
+import { checkRateLimit, checkDailyLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
 
 const ENGINE_URL = process.env.BLOCKMAIL_ENGINE_URL || "http://localhost:8080";
 const ENGINE_API_KEY = process.env.BLOCKMAIL_ENGINE_API_KEY || "development-secret-key";
-
-// In-memory rate limit store (per-minute)
-const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-function checkMinuteRateLimit(key: string, limit: number): { allowed: boolean; remaining: number; resetAt: number } {
-  const now = Date.now();
-  const windowMs = 60 * 1000;
-  const entry = rateLimitStore.get(key);
-
-  if (!entry || now > entry.resetAt) {
-    rateLimitStore.set(key, { count: 1, resetAt: now + windowMs });
-    return { allowed: true, remaining: limit - 1, resetAt: now + windowMs };
-  }
-
-  if (entry.count >= limit) {
-    return { allowed: false, remaining: 0, resetAt: entry.resetAt };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: limit - entry.count, resetAt: entry.resetAt };
-}
-
-function getDailyRateLimitKey(userId: string): string {
-  const today = new Date().toISOString().split("T")[0];
-  return `daily:${userId}:${today}`;
-}
-
-// Simple daily counter using the same store
-const dailyLimitStore = new Map<string, { count: number; resetAt: number }>();
-
-function checkDailyRateLimit(userId: string, limit: number): { allowed: boolean; remaining: number } {
-  const now = Date.now();
-  const today = new Date().toISOString().split("T")[0];
-  const key = `daily:${userId}:${today}`;
-  const endOfDay = new Date();
-  endOfDay.setUTCHours(23, 59, 59, 999);
-  const windowMs = endOfDay.getTime() - now;
-
-  const entry = dailyLimitStore.get(key);
-
-  if (!entry || now > entry.resetAt) {
-    dailyLimitStore.set(key, { count: 1, resetAt: now + windowMs });
-    return { allowed: true, remaining: limit - 1 };
-  }
-
-  if (entry.count >= limit) {
-    return { allowed: false, remaining: 0 };
-  }
-
-  entry.count++;
-  return { allowed: true, remaining: limit - entry.count };
-}
+const BLOCKMAIL_SECRET = process.env.BLOCKMAIL_SECRET || "";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0] || "unknown";
 
+  // Check if request came through Zuplo gateway (shared secret validation)
+  const zuploSecret = request.headers.get("x-blockmail-secret");
+  const isZuploVerified = BLOCKMAIL_SECRET !== "" && zuploSecret === BLOCKMAIL_SECRET;
+
   try {
-    // 1. Extract API key
-    const apiKey = request.headers.get(API_KEY_HEADER);
-    if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: { code: "MISSING_API_KEY", message: "API key is required. Pass it via the X-API-Key header." } },
-        { status: 401 }
-      );
-    }
+    // 1. Authenticate (Zuplo or self-managed)
+    let userId: string;
+    let userPlan: string;
+    let keyId: string;
+    let keyRateLimit: number;
+    let keyDailyLimit: number;
 
-    // 2. Validate key format
-    if (!apiKey.startsWith("bm_live_")) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_API_KEY", message: "Invalid API key format." } },
-        { status: 401 }
-      );
-    }
-
-    // 3. Look up key by prefix and verify hash
-    const keyPrefix = apiKey.substring(0, 11);
-    const storedKey = await getApiKeyByPrefix(keyPrefix);
-
-    if (!storedKey) {
-      logAudit({ action: AuditActions.API_KEY_INVALID, ip, details: { keyPrefix }, severity: "warn" });
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_API_KEY", message: "Invalid API key." } },
-        { status: 401 }
-      );
-    }
-
-    // Verify the full key matches
-    const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
-    if (keyHash !== storedKey.unkeyId) {
-      logAudit({ action: AuditActions.API_KEY_INVALID, userId: storedKey.userId, apiKeyId: storedKey.id, ip, details: { reason: "hash_mismatch" }, severity: "warn" });
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_API_KEY", message: "Invalid API key." } },
-        { status: 401 }
-      );
-    }
-
-    // 4. Check key is active
-    if (!storedKey.isActive) {
-      logAudit({ action: AuditActions.API_KEY_REVOKED, userId: storedKey.userId, apiKeyId: storedKey.id, ip, severity: "warn" });
-      return NextResponse.json(
-        { success: false, error: { code: "KEY_REVOKED", message: "This API key has been revoked." } },
-        { status: 401 }
-      );
-    }
-
-    const user = storedKey.user;
-
-    // 5. Check rate limits
-    const planLimits = RATE_LIMITS[user.plan];
-
-    // Per-minute rate limit
-    const minuteCheck = checkMinuteRateLimit(storedKey.id, storedKey.rateLimit);
-    if (!minuteCheck.allowed) {
-      logAudit({ action: AuditActions.RATE_LIMIT_HIT, userId: user.id, apiKeyId: storedKey.id, ip, details: { type: "minute" }, severity: "warn" });
-      return NextResponse.json(
-        { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Rate limit exceeded. Try again later." } },
-        {
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": String(storedKey.rateLimit),
-            "X-RateLimit-Remaining": "0",
-            "X-RateLimit-Reset": String(Math.ceil(minuteCheck.resetAt / 1000)),
-            "Retry-After": String(Math.ceil((minuteCheck.resetAt - Date.now()) / 1000)),
-          },
+    if (isZuploVerified) {
+      // Zuplo already authenticated + secret validated
+      // Try to resolve real user from forwarded userId header
+      const zuploUserId = request.headers.get("x-blockmail-user-id");
+      if (zuploUserId) {
+        const dbUser = await prisma.user.findUnique({ where: { id: zuploUserId } });
+        if (dbUser) {
+          userId = dbUser.id;
+          userPlan = dbUser.plan;
+          keyRateLimit = PLAN_LIMITS[dbUser.plan].requestsPerMinute;
+          keyDailyLimit = PLAN_LIMITS[dbUser.plan].requestsPerDay;
+          // Find the API key for this user
+          const userKey = await prisma.apiKey.findFirst({ where: { userId: dbUser.id } });
+          keyId = userKey?.id ?? "zuplo-key";
+        } else {
+          userId = zuploUserId;
+          userPlan = "FREE";
+          keyRateLimit = PLAN_LIMITS.FREE.requestsPerMinute;
+          keyDailyLimit = PLAN_LIMITS.FREE.requestsPerDay;
+          keyId = "zuplo-key";
         }
-      );
+      } else {
+        userId = "zuplo-user";
+        userPlan = "FREE";
+        keyRateLimit = PLAN_LIMITS.FREE.requestsPerMinute;
+        keyDailyLimit = PLAN_LIMITS.FREE.requestsPerDay;
+        keyId = "zuplo-key";
+      }
+    } else {
+      // Self-managed key authentication
+      const apiKey = request.headers.get(API_KEY_HEADER);
+      if (!apiKey) {
+        return NextResponse.json(
+          { success: false, error: { code: "MISSING_API_KEY", message: "API key is required." } },
+          { status: 401 }
+        );
+      }
+      if (!apiKey.startsWith("bm_live_")) {
+        return NextResponse.json(
+          { success: false, error: { code: "INVALID_API_KEY", message: "Invalid API key format." } },
+          { status: 401 }
+        );
+      }
+      const keyPrefix = apiKey.substring(0, 11);
+      const lookupKey = await getApiKeyByPrefix(keyPrefix);
+      if (!lookupKey) {
+        logAudit({ action: AuditActions.API_KEY_INVALID, ip, details: { keyPrefix }, severity: "warn" });
+        return NextResponse.json(
+          { success: false, error: { code: "INVALID_API_KEY", message: "Invalid API key." } },
+          { status: 401 }
+        );
+      }
+      const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
+      if (keyHash !== lookupKey.unkeyId) {
+        logAudit({ action: AuditActions.API_KEY_INVALID, userId: lookupKey.userId, apiKeyId: lookupKey.id, ip, details: { reason: "hash_mismatch" }, severity: "warn" });
+        return NextResponse.json(
+          { success: false, error: { code: "INVALID_API_KEY", message: "Invalid API key." } },
+          { status: 401 }
+        );
+      }
+      if (!lookupKey.isActive) {
+        logAudit({ action: AuditActions.API_KEY_REVOKED, userId: lookupKey.userId, apiKeyId: lookupKey.id, ip, severity: "warn" });
+        return NextResponse.json(
+          { success: false, error: { code: "KEY_REVOKED", message: "This API key has been revoked." } },
+          { status: 401 }
+        );
+      }
+      userId = lookupKey.user.id;
+      userPlan = lookupKey.user.plan;
+      keyId = lookupKey.id;
+      keyRateLimit = lookupKey.rateLimit;
+      keyDailyLimit = lookupKey.dailyLimit;
     }
 
-    // Daily rate limit
-    const dailyCheck = checkDailyRateLimit(user.id, storedKey.dailyLimit);
-    if (!dailyCheck.allowed) {
-      logAudit({ action: AuditActions.DAILY_LIMIT_HIT, userId: user.id, apiKeyId: storedKey.id, ip, details: { type: "daily" }, severity: "warn" });
-      return NextResponse.json(
-        { success: false, error: { code: "DAILY_LIMIT_EXCEEDED", message: "Daily request limit exceeded." } },
-        {
-          status: 429,
-          headers: {
-            "X-RateLimit-Limit": String(storedKey.dailyLimit),
-            "X-RateLimit-Remaining": "0",
-            "X-DailyLimit-Limit": String(storedKey.dailyLimit),
-            "X-DailyLimit-Remaining": "0",
-          },
-        }
-      );
+    // 2. Rate limits (skip if Zuplo handles them)
+    if (!isZuploVerified) {
+      const minuteCheck = await checkRateLimit(`minute:${keyId}`, keyRateLimit, 60);
+      if (!minuteCheck.allowed) {
+        logAudit({ action: AuditActions.RATE_LIMIT_HIT, userId, apiKeyId: keyId, ip, details: { type: "minute" }, severity: "warn" });
+        return NextResponse.json(
+          { success: false, error: { code: "RATE_LIMIT_EXCEEDED", message: "Rate limit exceeded." } },
+          { status: 429, headers: { "Retry-After": String(Math.ceil((minuteCheck.resetAt - Date.now()) / 1000)) } }
+        );
+      }
+      const dailyCheck = await checkDailyLimit(userId, keyDailyLimit);
+      if (!dailyCheck.allowed) {
+        logAudit({ action: AuditActions.DAILY_LIMIT_HIT, userId, apiKeyId: keyId, ip, details: { type: "daily" }, severity: "warn" });
+        return NextResponse.json(
+          { success: false, error: { code: "DAILY_LIMIT_EXCEEDED", message: "Daily limit exceeded." } },
+          { status: 429 }
+        );
+      }
     }
 
-    // 6. Parse and validate request body
+    // 3. Parse and validate request body
     const body = await request.json();
     const result = verifyEmailSchema.safeParse(body);
     if (!result.success) {
@@ -168,23 +135,16 @@ export async function POST(request: NextRequest) {
 
     const { email, context } = result.data;
 
-    // 7. Forward to Go engine
+    // 4. Forward to Go engine
     let engineData;
     try {
       const engineResponse = await fetch(`${ENGINE_URL}/v1/verify`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": ENGINE_API_KEY,
-        },
+        headers: { "Content-Type": "application/json", "X-API-Key": ENGINE_API_KEY },
         body: JSON.stringify({ email, context }),
         signal: AbortSignal.timeout(10000),
       });
-
-      if (!engineResponse.ok) {
-        throw new Error(`Engine returned ${engineResponse.status}`);
-      }
-
+      if (!engineResponse.ok) throw new Error(`Engine returned ${engineResponse.status}`);
       engineData = await engineResponse.json();
     } catch {
       return NextResponse.json(
@@ -195,71 +155,64 @@ export async function POST(request: NextRequest) {
 
     const latencyMs = Date.now() - startTime;
 
-    // 8. Log usage to database
-    const domain = email.split("@")[1] || "";
-    await logUsage({
-      userId: user.id,
-      apiKeyId: storedKey.id,
-      email,
-      domain,
-      isDisposable: engineData.is_disposable ?? false,
-      riskScore: engineData.risk_score ?? 0,
-      tierTriggered: engineData.analysis?.tier_triggered ?? 0,
-      reason: engineData.analysis?.reason ?? "allowed",
-      latencyMs,
-      ipAddress: context?.ip_address,
-      userAgent: context?.user_agent,
-      countryCode: context?.country_code,
-    });
+    // 5. Log usage (skip only for unresolved Zuplo users)
+    const canTrack = !isZuploVerified || userId !== "zuplo-user";
+    if (canTrack) {
+      const domain = email.split("@")[1] || "";
+      logUsage({
+        userId, apiKeyId: keyId, email, domain,
+        isDisposable: engineData.is_disposable ?? false,
+        riskScore: engineData.risk_score ?? 0,
+        tierTriggered: engineData.analysis?.tier_triggered ?? 0,
+        reason: engineData.analysis?.reason ?? "allowed",
+        latencyMs,
+        ipAddress: context?.ip_address,
+        userAgent: context?.user_agent,
+        countryCode: context?.country_code,
+      }).catch(() => {});
+    }
 
-    // 9. Update last used timestamp (fire and forget)
-    updateLastUsedAt(storedKey.id).catch(() => {});
+    // 6. Update last used (fire and forget)
+    if (canTrack && keyId !== "zuplo-key") {
+      updateLastUsedAt(keyId).catch(() => {});
+    }
 
-    // 10. Audit log (fire and forget)
-    logAudit({
-      action: AuditActions.API_KEY_USED,
-      userId: user.id,
-      apiKeyId: storedKey.id,
-      ip,
-      details: { email, is_disposable: engineData.is_disposable },
-      severity: "info",
-    });
+    // 7. Audit log (fire and forget)
+    if (canTrack) {
+      logAudit({
+        action: AuditActions.API_KEY_USED,
+        userId, apiKeyId: keyId, ip,
+        details: { email, is_disposable: engineData.is_disposable },
+        severity: "info",
+      });
+    }
 
-    // 11. Trigger webhooks (fire and forget)
-    const webhookEvent = engineData.is_disposable ? "email.blocked" : "email.allowed";
-    triggerWebhooks(user.id, webhookEvent, {
-      email,
-      is_disposable: engineData.is_disposable ?? false,
-      risk_score: engineData.risk_score ?? 0,
-      reason: engineData.analysis?.reason ?? "allowed",
-      request_id: engineData.request_id ?? `req_${Date.now()}`,
-    }).catch(() => {});
+    // 8. Trigger webhooks (fire and forget, skip for unresolved Zuplo)
+    if (canTrack) {
+      const webhookEvent = engineData.is_disposable ? "email.blocked" : "email.allowed";
+      triggerWebhooks(userId, webhookEvent, {
+        email,
+        is_disposable: engineData.is_disposable ?? false,
+        risk_score: engineData.risk_score ?? 0,
+        reason: engineData.analysis?.reason ?? "allowed",
+        request_id: engineData.request_id ?? `req_${Date.now()}`,
+      }).catch(() => {});
+    }
 
-    // 12. Return response with rate limit headers
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          email,
-          is_disposable: engineData.is_disposable ?? false,
-          risk_score: engineData.risk_score ?? 0,
-          analysis: engineData.analysis ?? {},
-        },
-        meta: {
-          request_id: engineData.request_id ?? `req_${Date.now()}`,
-          latency_ms: latencyMs,
-        },
+    // 9. Return response
+    return NextResponse.json({
+      success: true,
+      data: {
+        email,
+        is_disposable: engineData.is_disposable ?? false,
+        risk_score: engineData.risk_score ?? 0,
+        analysis: engineData.analysis ?? {},
       },
-      {
-        headers: {
-          "X-RateLimit-Limit": String(storedKey.rateLimit),
-          "X-RateLimit-Remaining": String(minuteCheck.remaining),
-          "X-RateLimit-Reset": String(Math.ceil(minuteCheck.resetAt / 1000)),
-          "X-DailyLimit-Limit": String(storedKey.dailyLimit),
-          "X-DailyLimit-Remaining": String(dailyCheck.remaining),
-        },
-      }
-    );
+      meta: {
+        request_id: engineData.request_id ?? `req_${Date.now()}`,
+        latency_ms: latencyMs,
+      },
+    });
   } catch {
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } },

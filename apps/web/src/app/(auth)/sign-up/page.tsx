@@ -30,38 +30,42 @@ export default function SignUpPage() {
 
     setLoading(true);
 
-    const { data, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (authError) {
-      setError(authError.message);
-      setLoading(false);
-      return;
-    }
-
-    if (data.user && !data.session) {
-      setError("Check your email for a confirmation link");
-      setLoading(false);
-      return;
-    }
-
-    // Auto-create user in our database
-    if (data.user) {
-      await fetch("/api/auth/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          supabaseId: data.user.id,
-          email: data.user.email,
-          name: data.user.user_metadata?.full_name || null,
-        }),
+    try {
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
       });
-    }
 
-    router.push("/dashboard");
-    router.refresh();
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.user && !data.session) {
+        setError("Check your email for a confirmation link");
+        setLoading(false);
+        return;
+      }
+
+      // Auto-create user in our database
+      if (data.user) {
+        await fetch("/api/auth/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            supabaseId: data.user.id,
+            email: data.user.email,
+            name: data.user.user_metadata?.full_name || null,
+          }),
+        });
+      }
+
+      window.location.href = "/dashboard";
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+      setLoading(false);
+    }
   }
 
   return (

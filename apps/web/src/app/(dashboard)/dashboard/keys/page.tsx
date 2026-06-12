@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { requireAuth } from "@/lib/auth";
-import { getApiKeys } from "@/lib/services/apikey";
+import { getApiKeys } from "@/lib/services/key-management";
 import { KeysManager } from "./keys-manager";
 
 export default async function ApiKeysPage() {

@@ -15,25 +15,7 @@ export const API_PREFIX = "/api/v1";
 export const API_KEY_HEADER = "X-API-Key";
 export const API_KEY_PREFIX = "bm_live_";
 export const API_KEY_PREFIX_TEST = "bm_test_";
-
-// ============================================
-// Rate Limits
-// ============================================
-
-export const RATE_LIMITS = {
-  FREE: {
-    requestsPerDay: 100,
-    requestsPerMinute: 10,
-  },
-  PRO: {
-    requestsPerDay: 1000,
-    requestsPerMinute: 100,
-  },
-  ENTERPRISE: {
-    requestsPerDay: 10000,
-    requestsPerMinute: 1000,
-  },
-} as const;
+export const ZUPLO_KEY_PREFIX = "zpka_";
 
 // ============================================
 // Webhook Events
@@ -57,16 +39,28 @@ export const PLAN_LIMITS = {
     maxApiKeys: 2,
     maxWebhooks: 1,
     requestsPerDay: 100,
+    requestsPerMinute: 10,
+    priceLabel: "$0",
+    priceDescription: "Free forever",
+    stripePriceId: null as string | null,
   },
   PRO: {
     maxApiKeys: 10,
     maxWebhooks: 5,
-    requestsPerDay: 1000,
+    requestsPerDay: 10000,
+    requestsPerMinute: 100,
+    priceLabel: "$29/mo",
+    priceDescription: "For growing teams",
+    stripePriceId: process.env.STRIPE_PRO_PRICE_ID || null,
   },
   ENTERPRISE: {
     maxApiKeys: 50,
     maxWebhooks: 20,
-    requestsPerDay: 10000,
+    requestsPerDay: 100000,
+    requestsPerMinute: 1000,
+    priceLabel: "Custom",
+    priceDescription: "For large scale",
+    stripePriceId: null as string | null,
   },
 } as const;
 

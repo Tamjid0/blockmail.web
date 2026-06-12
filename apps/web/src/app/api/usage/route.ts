@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const usage = await getUsageStats(auth.dbUser.id, result.data.period ?? "30d");
+    const usage = await getUsageStats(auth.dbUser.id, result.data.period ?? "30d", result.data.key_id);
     return NextResponse.json({ success: true, data: usage });
   } catch {
     return NextResponse.json(

@@ -3,18 +3,29 @@ import { requireAuth } from "@/lib/auth";
 import { getApiKeys } from "@/lib/services/apikey";
 import { getUsageStats, getRecentUsage } from "@/lib/services/usage";
 import { getWebhooks } from "@/lib/services/webhook";
+import { PLAN_LIMITS } from "@/lib/constants";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { prisma } from "@/lib/prisma";
 
 export default async function DashboardPage() {
   const auth = await requireAuth();
   if (!auth) redirect("/sign-in");
 
-  const [apiKeys, usage, recentUsage, webhooks] = await Promise.all([
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  const [apiKeys, usage, recentUsage, webhooks, todayCount] = await Promise.all([
     getApiKeys(auth.dbUser.id),
     getUsageStats(auth.dbUser.id, "30d"),
     getRecentUsage(auth.dbUser.id, 5),
     getWebhooks(auth.dbUser.id),
+    prisma.usageLog.count({ where: { userId: auth.dbUser.id, createdAt: { gte: today } } }),
   ]);
+
+  const planLimits = PLAN_LIMITS[auth.dbUser.plan];
+  const usagePercent = Math.round((todayCount / planLimits.requestsPerDay) * 100);
+  const isWarning = usagePercent >= 80;
+  const isLimit = usagePercent >= 100;
 
   return (
     <div className="space-y-8">
@@ -25,11 +36,25 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {isWarning && (
+        <div className={`rounded-lg p-4 text-sm ${isLimit ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-800"}`}>
+          <p className="font-medium">
+            {isLimit
+              ? "Daily limit reached"
+              : `Approaching daily limit (${usagePercent}%)`}
+          </p>
+          <p className="mt-1">
+            {todayCount} / {planLimits.requestsPerDay.toLocaleString()} requests used today.
+            {auth.dbUser.plan === "FREE" && !isLimit && " Upgrade to Pro for 10,000 requests/day."}
+          </p>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total Requests" value={usage.summary.total_requests.toLocaleString()} />
+        <StatCard title="Today" value={todayCount.toLocaleString()} sub={`${usagePercent}% of ${planLimits.requestsPerDay.toLocaleString()} limit`} />
+        <StatCard title="Total Requests (30d)" value={usage.summary.total_requests.toLocaleString()} />
         <StatCard title="Blocked" value={usage.summary.blocked.toLocaleString()} sub={`${(usage.summary.block_rate * 100).toFixed(1)}% block rate`} />
         <StatCard title="API Keys" value={String(apiKeys.length)} sub={`${apiKeys.filter((k) => k.isActive).length} active`} />
-        <StatCard title="Webhooks" value={String(webhooks.length)} sub={webhooks.length > 0 ? "All healthy" : "None configured"} />
       </div>
 
       <Card>

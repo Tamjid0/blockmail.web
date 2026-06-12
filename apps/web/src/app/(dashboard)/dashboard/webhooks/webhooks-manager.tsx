@@ -25,6 +25,7 @@ export function WebhooksManager({ initialWebhooks }: { initialWebhooks: WebhookD
   const [newEvents, setNewEvents] = useState<string[]>(["email.blocked"]);
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!newUrl || newEvents.length === 0) return;
@@ -47,6 +48,20 @@ export function WebhooksManager({ initialWebhooks }: { initialWebhooks: WebhookD
       // handled
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleToggle = async (id: string, currentActive: boolean) => {
+    setTogglingId(id);
+    try {
+      await fetch("/api/webhooks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, isActive: !currentActive }),
+      });
+      router.refresh();
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -97,15 +112,18 @@ export function WebhooksManager({ initialWebhooks }: { initialWebhooks: WebhookD
                     <p className="text-sm text-gray-600">Events: {wh.events.join(", ")}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${wh.isActive ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-                      {wh.isActive ? "Active" : "Inactive"}
-                    </span>
-                    <p className="mt-1 text-xs text-gray-500">
-                      Last triggered: {wh.lastTriggeredAt ? new Date(wh.lastTriggeredAt).toLocaleDateString() : "Never"}
-                    </p>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleToggle(wh.id, wh.isActive)}
+                    disabled={togglingId === wh.id}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      wh.isActive ? "bg-green-500" : "bg-gray-300"
+                    } ${togglingId === wh.id ? "opacity-50" : ""}`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      wh.isActive ? "translate-x-6" : "translate-x-1"
+                    }`} />
+                  </button>
                   <Button variant="ghost" size="sm" onClick={() => handleDelete(wh.id)} className="text-red-600 hover:text-red-700">
                     Delete
                   </Button>

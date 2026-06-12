@@ -1,0 +1,136 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Blockmail API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/v1/verify": {
+      "post": {
+        "x-zuplo-route": {
+          "handler": {
+            "export": "urlForwardHandler",
+            "module": "$import:@zuplo/runtime/handlers"
+          },
+          "options": {
+            "baseUrl": "${env.BASE_URL}"
+          }
+        },
+        "x-zuplo-policies": {
+          "inbound": [
+            {
+              "export": "apiKeyInbound",
+              "module": "$import:@zuplo/policies/api-key-inbound",
+              "options": {}
+            },
+            {
+              "export": "rateLimitInbound",
+              "module": "$import:@zuplo/policies/rate-limit-inbound",
+              "options": {
+                "limit": 100,
+                "windowSeconds": 60
+              }
+            }
+          ]
+        },
+        "summary": "Verify Email",
+        "description": "Check if an email address is disposable or temporary",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Email address to verify"
+                  },
+                  "context": {
+                    "type": "object",
+                    "properties": {
+                      "ip_address": {
+                        "type": "string"
+                      },
+                      "user_agent": {
+                        "type": "string"
+                      },
+                      "country_code": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verification result"
+          },
+          "401": {
+            "description": "Invalid API key"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    },
+    "/v1/try": {
+      "post": {
+        "x-zuplo-route": {
+          "handler": {
+            "export": "urlForwardHandler",
+            "module": "$import:@zuplo/runtime/handlers"
+          },
+          "options": {
+            "baseUrl": "${env.BASE_URL}"
+          }
+        },
+        "x-zuplo-policies": {
+          "inbound": [
+            {
+              "export": "rateLimitInbound",
+              "module": "$import:@zuplo/policies/rate-limit-inbound",
+              "options": {
+                "limit": 5,
+                "windowSeconds": 60
+              }
+            }
+          ]
+        },
+        "summary": "Try It - Test Email Verification",
+        "description": "Test the API with a demo key (no signup required)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verification result"
+          },
+          "429": {
+            "description": "Rate limit exceeded"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export interface LogUsageInput {
   userId: string;
@@ -58,13 +59,15 @@ function getPeriodDays(period: string): number {
   }
 }
 
-export async function getUsageStats(userId: string, period: string) {
+export async function getUsageStats(userId: string, period: string, keyFilter?: string) {
   const days = getPeriodDays(period);
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const whereBase = { userId, createdAt: { gte: since } };
+  const where = keyFilter ? { ...whereBase, apiKeyId: keyFilter } : whereBase;
 
   const [summary, rawDaily, byReason, byKey] = await Promise.all([
     prisma.usageLog.aggregate({
-      where: { userId, createdAt: { gte: since } },
+      where,
       _count: { id: true },
       _avg: { riskScore: true },
     }),
@@ -78,20 +81,21 @@ export async function getUsageStats(userId: string, period: string) {
       FROM "UsageLog"
       WHERE "userId" = ${userId}
         AND "createdAt" >= ${since}
+        ${keyFilter ? Prisma.sql`AND "apiKeyId" = ${keyFilter}` : Prisma.empty}
       GROUP BY TO_CHAR("createdAt", 'YYYY-MM-DD')
       ORDER BY date ASC
     `,
 
     prisma.usageLog.groupBy({
       by: ["reason"],
-      where: { userId, createdAt: { gte: since } },
+      where,
       _count: { id: true },
       orderBy: { _count: { id: "desc" } },
     }),
 
     prisma.usageLog.groupBy({
       by: ["apiKeyId"],
-      where: { userId, createdAt: { gte: since } },
+      where: keyFilter ? { userId, apiKeyId: keyFilter, createdAt: { gte: since } } : { userId, createdAt: { gte: since } },
       _count: { id: true },
     }),
   ]);
@@ -103,7 +107,7 @@ export async function getUsageStats(userId: string, period: string) {
   const byKeyWithBlocked = await Promise.all(
     byKey.map(async (k) => {
       const blockedCount = await prisma.usageLog.count({
-        where: { userId, apiKeyId: k.apiKeyId, isDisposable: true, createdAt: { gte: since } },
+        where: { userId, apiKeyId: k.apiKeyId, isDisposable: true, createdAt: { gte: since }, ...(keyFilter ? { apiKeyId: keyFilter } : {}) },
       });
       return { key_id: k.apiKeyId, requests: k._count.id, blocked: blockedCount };
     })

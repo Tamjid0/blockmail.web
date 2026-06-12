@@ -13,6 +13,7 @@ const publicRoutes = [
   "/api/v1/try",
   "/api/v1/verify",
   "/api/auth/sync",
+  "/api/webhooks/stripe",
 ];
 
 function isPublicRoute(pathname: string): boolean {

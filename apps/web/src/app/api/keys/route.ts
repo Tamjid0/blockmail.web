@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
-import { createApiKeySchema } from "@/lib/validator";
-import { getApiKeys, createApiKey, revokeApiKey } from "@/lib/services/apikey";
+import { createApiKey, getApiKeys, revokeApiKey } from "@/lib/services/key-management";
 
 export async function GET() {
   try {
@@ -34,26 +33,37 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const result = createApiKeySchema.safeParse(body);
-    if (!result.success) {
+    const { name } = body;
+
+    if (!name || typeof name !== "string") {
       return NextResponse.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: result.error.issues[0].message } },
+        { success: false, error: { code: "VALIDATION_ERROR", message: "Name is required" } },
         { status: 400 }
       );
     }
 
-    const { name, permissions, rate_limit, daily_limit } = result.data;
-
-    const newKey = await createApiKey({
-      userId: auth.dbUser.id,
+    const result = await createApiKey(
+      auth.dbUser.id,
       name,
-      permissions: permissions ?? ["verify"],
-      rateLimit: rate_limit ?? 100,
-      dailyLimit: daily_limit ?? 100,
-    });
+      auth.dbUser.plan
+    );
+
+    if (!result.success) {
+      return NextResponse.json(
+        { success: false, error: { code: "CREATE_FAILED", message: result.error ?? "Failed to create API key" } },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json(
-      { success: true, data: { ...newKey, message: "Store this key securely. It will not be shown again." } },
+      {
+        success: true,
+        data: {
+          id: result.consumerId,
+          key: result.key,
+          message: "Store this key securely. It will not be shown again.",
+        },
+      },
       { status: 201 }
     );
   } catch {
@@ -83,8 +93,8 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const existing = await revokeApiKey(keyId);
-    if (!existing) {
+    const success = await revokeApiKey(auth.dbUser.id, keyId);
+    if (!success) {
       return NextResponse.json(
         { success: false, error: { code: "NOT_FOUND", message: "API key not found" } },
         { status: 404 }

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { createWebhookSchema } from "@/lib/validator";
-import { getWebhooks, createWebhook, deleteWebhook } from "@/lib/services/webhook";
+import { getWebhooks, createWebhook, deleteWebhook, toggleWebhook } from "@/lib/services/webhook";
+import { validateWebhookUrl } from "@/lib/ssrf";
 
 export async function GET() {
   try {
@@ -44,6 +45,15 @@ export async function POST(request: NextRequest) {
 
     const { url, events } = result.data;
 
+    // SSRF protection — validate URL doesn't point to internal networks
+    const ssrfError = await validateWebhookUrl(url);
+    if (ssrfError) {
+      return NextResponse.json(
+        { success: false, error: { code: "INVALID_URL", message: ssrfError } },
+        { status: 400 }
+      );
+    }
+
     const newWebhook = await createWebhook({
       userId: auth.dbUser.id,
       url,
@@ -54,6 +64,36 @@ export async function POST(request: NextRequest) {
       { success: true, data: { ...newWebhook, message: "Store the webhook secret securely. It will not be shown again." } },
       { status: 201 }
     );
+  } catch {
+    return NextResponse.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const auth = await requireAuth();
+    if (!auth) {
+      return NextResponse.json(
+        { success: false, error: { code: "UNAUTHORIZED", message: "Authentication required" } },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+    const { id, isActive } = body as { id: string; isActive: boolean };
+
+    if (!id || typeof isActive !== "boolean") {
+      return NextResponse.json(
+        { success: false, error: { code: "VALIDATION_ERROR", message: "id and isActive are required" } },
+        { status: 400 }
+      );
+    }
+
+    await toggleWebhook(id, isActive);
+    return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } },

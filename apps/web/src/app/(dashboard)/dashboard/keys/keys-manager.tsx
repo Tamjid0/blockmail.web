@@ -56,21 +56,19 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
 interface ApiKeyData {
   id: string;
   name: string;
+  key?: string;
   keyPrefix: string;
-  permissions: string[];
-  rateLimit: number;
-  dailyLimit: number;
   isActive: boolean;
-  lastUsedAt: Date | null;
-  createdAt: Date;
+  lastUsedAt: string | null;
+  createdAt: string;
+  rateLimit?: number;
+  dailyLimit?: number;
 }
 
 export function KeysManager({ initialKeys }: { initialKeys: ApiKeyData[] }) {
   const router = useRouter();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newKeyName, setNewKeyName] = useState("");
-  const [newKeyRateLimit, setNewKeyRateLimit] = useState("100");
-  const [newKeyDailyLimit, setNewKeyDailyLimit] = useState("1000");
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isRevoking, setIsRevoking] = useState<string | null>(null);
@@ -83,20 +81,13 @@ export function KeysManager({ initialKeys }: { initialKeys: ApiKeyData[] }) {
       const res = await fetch("/api/keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: newKeyName,
-          permissions: ["verify"],
-          rate_limit: parseInt(newKeyRateLimit),
-          daily_limit: parseInt(newKeyDailyLimit),
-        }),
+        body: JSON.stringify({ name: newKeyName }),
       });
 
       const data = await res.json();
       if (data.success) {
         setCreatedKey(data.data.key);
         setNewKeyName("");
-        setNewKeyRateLimit("100");
-        setNewKeyDailyLimit("1000");
         router.refresh();
       }
     } catch {
@@ -161,9 +152,11 @@ export function KeysManager({ initialKeys }: { initialKeys: ApiKeyData[] }) {
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="text-right">
-                    <p className="text-sm text-gray-600">
-                      Rate: {key.rateLimit}/min | Daily: {key.dailyLimit.toLocaleString()}
-                    </p>
+                    {key.rateLimit !== undefined && key.dailyLimit !== undefined && (
+                      <p className="text-sm text-gray-600">
+                        Rate: {key.rateLimit}/min | Daily: {key.dailyLimit.toLocaleString()}
+                      </p>
+                    )}
                     <p className="text-xs text-gray-500">
                       Last used: {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleDateString() : "Never"}
                     </p>
@@ -230,26 +223,6 @@ export function KeysManager({ initialKeys }: { initialKeys: ApiKeyData[] }) {
                       value={newKeyName}
                       onChange={(e) => setNewKeyName(e.target.value)}
                     />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="rate_limit">Rate Limit (/min)</Label>
-                      <Input
-                        id="rate_limit"
-                        type="number"
-                        value={newKeyRateLimit}
-                        onChange={(e) => setNewKeyRateLimit(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="daily_limit">Daily Limit</Label>
-                      <Input
-                        id="daily_limit"
-                        type="number"
-                        value={newKeyDailyLimit}
-                        onChange={(e) => setNewKeyDailyLimit(e.target.value)}
-                      />
-                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" className="flex-1" onClick={() => setShowCreateModal(false)}>

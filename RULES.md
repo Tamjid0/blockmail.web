@@ -79,7 +79,7 @@
 | Database | PostgreSQL + Prisma | Type-safe ORM, migrations |
 | Cache | Redis | Rate limiting, caching |
 | Auth | Supabase | Cloud + self-hosted, same API |
-| API Keys | Self-managed | No external dependency |
+| API Keys | Zuplo (production) + Self-managed (dev/self-hosted) | Edge validation, 100K free/month |
 | UI | shadcn/ui + Radix | Accessible, dark/light |
 | Styling | Tailwind CSS | Utility-first, responsive |
 | Validation | Zod | End-to-end type safety |
@@ -108,7 +108,7 @@
 ### NOT Building
 - Not building a new email verification engine (Go engine exists)
 - Not building custom auth (Supabase handles it)
-- Not building external API key management (self-managed)
+- Not building custom API key management (Zuplo handles it in production)
 
 ---
 
@@ -119,6 +119,7 @@
 - Supabase Cloud → PostgreSQL + Auth
 - Upstash → Redis
 - Railway → Go Engine
+- Zuplo → API key management, rate limiting, analytics
 - Config: `.env.cloud`
 
 ### Self-Hosted Deploy (For full control)

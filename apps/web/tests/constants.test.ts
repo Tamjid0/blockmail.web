@@ -5,7 +5,6 @@ import {
   API_PREFIX,
   API_KEY_HEADER,
   API_KEY_PREFIX,
-  RATE_LIMITS,
   WEBHOOK_EVENTS,
   PLAN_LIMITS,
   VERIFICATION_REASONS,
@@ -33,29 +32,6 @@ describe("API Constants", () => {
 
   it("has correct API key prefix", () => {
     expect(API_KEY_PREFIX).toBe("bm_live_");
-  });
-});
-
-describe("RATE_LIMITS", () => {
-  it("has limits for all plans", () => {
-    expect(RATE_LIMITS.FREE).toBeDefined();
-    expect(RATE_LIMITS.PRO).toBeDefined();
-    expect(RATE_LIMITS.ENTERPRISE).toBeDefined();
-  });
-
-  it("free plan has lower limits than pro", () => {
-    expect(RATE_LIMITS.FREE.requestsPerDay).toBeLessThan(
-      RATE_LIMITS.PRO.requestsPerDay
-    );
-    expect(RATE_LIMITS.FREE.requestsPerMinute).toBeLessThan(
-      RATE_LIMITS.PRO.requestsPerMinute
-    );
-  });
-
-  it("pro plan has lower limits than enterprise", () => {
-    expect(RATE_LIMITS.PRO.requestsPerDay).toBeLessThan(
-      RATE_LIMITS.ENTERPRISE.requestsPerDay
-    );
   });
 });
 

@@ -11,11 +11,10 @@ export default function SignOutPage() {
   useEffect(() => {
     async function signOut() {
       await supabase.auth.signOut();
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     }
     signOut();
-  }, [supabase, router]);
+  }, [supabase]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">

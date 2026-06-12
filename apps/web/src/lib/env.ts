@@ -1,24 +1,42 @@
 import { z } from "zod";
 
-const envSchema = z.object({
-  // Database
-  DATABASE_URL: z.string().url("DATABASE_URL must be a valid PostgreSQL connection string"),
+const envSchema = z
+  .object({
+    // Database
+    DATABASE_URL: z.string().url("DATABASE_URL must be a valid PostgreSQL connection string"),
 
-  // Redis (optional for now)
-  REDIS_URL: z.string().optional(),
+    // Redis
+    REDIS_URL: z.string().optional(),
+    REDIS_TOKEN: z.string().optional(),
 
-  // Supabase
-  NEXT_PUBLIC_SUPABASE_URL: z.string().url("NEXT_PUBLIC_SUPABASE_URL must be a valid URL"),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
-  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+    // Supabase
+    NEXT_PUBLIC_SUPABASE_URL: z.string().url("NEXT_PUBLIC_SUPABASE_URL must be a valid URL"),
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"),
+    SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
 
-  // Engine
-  BLOCKMAIL_ENGINE_URL: z.string().url("BLOCKMAIL_ENGINE_URL must be a valid URL"),
-  BLOCKMAIL_ENGINE_API_KEY: z.string().min(1, "BLOCKMAIL_ENGINE_API_KEY is required"),
+    // Engine
+    BLOCKMAIL_ENGINE_URL: z.string().url("BLOCKMAIL_ENGINE_URL must be a valid URL"),
+    BLOCKMAIL_ENGINE_API_KEY: z.string().min(1, "BLOCKMAIL_ENGINE_API_KEY is required"),
 
-  // App
-  NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL").optional(),
-});
+    // App
+    NEXT_PUBLIC_APP_URL: z.string().url("NEXT_PUBLIC_APP_URL must be a valid URL").optional(),
+
+    // Zuplo (optional - only needed for managed edge deployment)
+    ZUPLO_ACCOUNT: z.string().optional(),
+    ZUPLO_BUCKET: z.string().optional(),
+    ZUPLO_API_KEY: z.string().optional(),
+
+    // Shared secret for Zuplo gateway verification (required when using Zuplo)
+    BLOCKMAIL_SECRET: z.string().optional(),
+  })
+  .refine(
+    (env) => {
+      // When Zuplo is configured, BLOCKMAIL_SECRET is required
+      if (env.ZUPLO_ACCOUNT && !env.BLOCKMAIL_SECRET) return false;
+      return true;
+    },
+    { message: "BLOCKMAIL_SECRET is required when ZUPLO_ACCOUNT is set" }
+  );
 
 export type Env = z.infer<typeof envSchema>;
 
