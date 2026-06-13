@@ -2,6 +2,16 @@
 const nextConfig = {
   reactStrictMode: true,
   output: "standalone",
+  experimental: {
+    serverComponentsExternalPackages: ["ioredis"],
+  },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push("ioredis");
+    }
+    return config;
+  },
   async headers() {
     return [
       {

@@ -1,4 +1,4 @@
-export type HttpMethod = "GET" | "POST" | "DELETE";
+export type HttpMethod = "GET" | "POST" | "DELETE" | "PATCH";
 
 export interface Endpoint {
   method: HttpMethod;
@@ -14,6 +14,7 @@ export const methodColors: Record<HttpMethod, string> = {
   GET: "bg-emerald-100 text-emerald-700",
   POST: "bg-blue-100 text-blue-700",
   DELETE: "bg-red-100 text-red-700",
+  PATCH: "bg-amber-100 text-amber-700",
 };
 
 export const endpoints: Endpoint[] = [
@@ -46,60 +47,25 @@ export const endpoints: Endpoint[] = [
 }`,
   },
   {
-    method: "POST",
-    path: "/api/v1/check",
-    title: "Check Multiple Emails",
-    description:
-      "Verify multiple emails in a single request (max 100). Returns results for each email with a summary.",
-    auth: true,
-    requestExample: `{
-  "emails": [
-    "user1@example.com",
-    "user2@mailinator.com"
-  ]
-}`,
-    responseExample: `{
-  "success": true,
-  "data": {
-    "results": [
-      {
-        "email": "user1@example.com",
-        "is_disposable": false,
-        "risk_score": 0
-      },
-      {
-        "email": "user2@mailinator.com",
-        "is_disposable": true,
-        "risk_score": 95
-      }
-    ],
-    "summary": {
-      "total": 2,
-      "disposable": 1,
-      "clean": 1
-    }
-  },
-  "meta": {
-    "request_id": "req_def456",
-    "latency_ms": 45
-  }
-}`,
-  },
-  {
     method: "GET",
     path: "/api/health",
     title: "Health Check",
     description:
-      "Check if the service is healthy. Returns connectivity status for all services.",
+      "Check if the service is healthy. Returns connectivity status for database and engine.",
     auth: false,
     requestExample: "",
     responseExample: `{
   "status": "healthy",
   "timestamp": "2026-06-10T12:00:00Z",
   "services": {
-    "database": "connected",
-    "redis": "connected",
-    "engine": "connected"
+    "database": {
+      "status": "connected",
+      "latencyMs": 12
+    },
+    "engine": {
+      "status": "connected",
+      "latencyMs": 45
+    }
   }
 }`,
   },
@@ -121,14 +87,19 @@ export const codeExamples: Record<string, { label: string; code: string }[]> = {
     {
       label: "Verify Email",
       code: [
-        "import Blockmail from '@blockmail/sdk';",
+        "const response = await fetch('https://api.blockmail.dev/api/v1/verify', {",
+        "  method: 'POST',",
+        "  headers: {",
+        "    'Content-Type': 'application/json',",
+        "    'X-API-Key': 'your_api_key',",
+        "  },",
+        "  body: JSON.stringify({ email: 'user@example.com' }),",
+        "});",
         "",
-        "const client = new Blockmail('your_api_key');",
+        "const data = await response.json();",
         "",
-        "const result = await client.verify('user@example.com');",
-        "",
-        "if (result.is_disposable) {",
-        "  console.log('Blocked disposable email');",
+        "if (data.data.is_disposable) {",
+        "  console.log('Blocked:', data.data.analysis.reason);",
         "}",
       ].join("\n"),
     },
@@ -137,14 +108,20 @@ export const codeExamples: Record<string, { label: string; code: string }[]> = {
     {
       label: "Verify Email",
       code: [
-        'from blockmail import Blockmail',
+        "import requests",
         "",
-        'client = Blockmail(api_key="your_api_key")',
+        "response = requests.post(",
+        "    'https://api.blockmail.dev/api/v1/verify',",
+        "    headers={",
+        "        'Content-Type': 'application/json',",
+        "        'X-API-Key': 'your_api_key',",
+        "    },",
+        "    json={'email': 'user@example.com'},",
+        ")",
         "",
-        'result = client.verify("user@example.com")',
-        "",
-        "if result.is_disposable:",
-        '    print("Blocked disposable email")',
+        "data = response.json()",
+        "if data['data']['is_disposable']:",
+        "    print(f\"Blocked: {data['data']['analysis']['reason']}\")",
       ].join("\n"),
     },
   ],
@@ -155,17 +132,30 @@ export const codeExamples: Record<string, { label: string; code: string }[]> = {
         "package main",
         "",
         'import (',
+        '  "bytes"',
+        '  "encoding/json"',
         '  "fmt"',
-        '  blockmail "blockmail/sdk/go"',
+        '  "net/http"',
         ")",
         "",
         "func main() {",
-        '  client := blockmail.New("https://api.blockmail.dev", "your_api_key")',
+        '  body, _ := json.Marshal(map[string]string{',
+        '    "email": "user@example.com",',
+        "  })",
         "",
-        '  result, _ := client.Verify("user@example.com", nil)',
+        '  req, _ := http.NewRequest("POST", "https://api.blockmail.dev/api/v1/verify", bytes.NewBuffer(body))',
+        '  req.Header.Set("Content-Type", "application/json")',
+        '  req.Header.Set("X-API-Key", "your_api_key")',
         "",
-        "  if result.IsDisposable {",
-        '    fmt.Printf("Blocked: %s\\n", result.Email)',
+        "  resp, _ := http.DefaultClient.Do(req)",
+        "  defer resp.Body.Close()",
+        "",
+        "  var result map[string]interface{}",
+        "  json.NewDecoder(resp.Body).Decode(&result)",
+        "",
+        '  data := result["data"].(map[string]interface{})',
+        '  if data["is_disposable"].(bool) {',
+        '    fmt.Printf("Blocked: %s\\n", data["analysis"].(map[string]interface{})["reason"])',
         "  }",
         "}",
       ].join("\n"),
@@ -177,14 +167,20 @@ export const codeExamples: Record<string, { label: string; code: string }[]> = {
       code: [
         "<?php",
         "",
-        "use Blockmail\\Blockmail;",
+        "$ch = curl_init('https://api.blockmail.dev/api/v1/verify');",
+        "curl_setopt($ch, CURLOPT_POST, true);",
+        "curl_setopt($ch, CURLOPT_HTTPHEADER, [",
+        "    'Content-Type: application/json',",
+        "    'X-API-Key: your_api_key',",
+        "]);",
+        "curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['email' => 'user@example.com']));",
+        "curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);",
         "",
-        "$client = new Blockmail('your_api_key');",
+        "$response = json_decode(curl_exec($ch), true);",
+        "curl_close($ch);",
         "",
-        "$result = $client->verify('user@example.com');",
-        "",
-        "if ($result->is_disposable) {",
-        "    echo 'Blocked disposable email';",
+        "if ($response['data']['is_disposable']) {",
+        "    echo 'Blocked: ' . $response['data']['analysis']['reason'];",
         "}",
       ].join("\n"),
     },
@@ -193,13 +189,15 @@ export const codeExamples: Record<string, { label: string; code: string }[]> = {
 
 export const rateLimitData = [
   { plan: "Free", perMinute: "10", perDay: "100" },
-  { plan: "Pro", perMinute: "100", perDay: "1,000" },
-  { plan: "Enterprise", perMinute: "Custom", perDay: "Custom" },
+  { plan: "Pro", perMinute: "100", perDay: "10,000" },
+  { plan: "Enterprise", perMinute: "1,000", perDay: "100,000" },
 ];
 
 export const errorCodes = [
   { code: "VALIDATION_ERROR", status: "400", description: "Invalid request body" },
-  { code: "UNAUTHORIZED", status: "401", description: "Invalid or missing API key" },
-  { code: "RATE_LIMITED", status: "429", description: "Too many requests" },
-  { code: "ENGINE_UNAVAILABLE", status: "503", description: "Verification engine is down" },
+  { code: "MISSING_API_KEY", status: "401", description: "No API key provided" },
+  { code: "INVALID_API_KEY", status: "401", description: "API key is invalid or revoked" },
+  { code: "RATE_LIMIT_EXCEEDED", status: "429", description: "Per-minute rate limit exceeded" },
+  { code: "DAILY_LIMIT_EXCEEDED", status: "429", description: "Daily rate limit exceeded" },
+  { code: "ENGINE_UNAVAILABLE", status: "503", description: "Verification engine is unavailable" },
 ];

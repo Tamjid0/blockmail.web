@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export interface AuditLogEntry {
   timestamp: string;
@@ -23,7 +24,7 @@ export function logAudit(entry: Omit<AuditLogEntry, "timestamp">): void {
       userId: entry.userId ?? null,
       apiKeyId: entry.apiKeyId ?? null,
       ip: entry.ip ?? null,
-      details: entry.details ?? undefined,
+      details: (entry.details ?? undefined) as Prisma.InputJsonValue | undefined,
     },
   }).catch((err) => {
     console.error("[AUDIT] Failed to persist audit log:", err.message);

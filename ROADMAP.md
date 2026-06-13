@@ -124,14 +124,22 @@
 
 ---
 
-## Phase 7: Documentation Fix
+## Phase 7: Documentation Fix ✅
 
-- [ ] Fix `README.md` — correct Next.js version, Clerk→Supabase, Unkey→Zuplo
-- [ ] Fix `docs/API.md` — remove nonexistent endpoints, fix auth references
-- [ ] Add OpenAPI/Swagger spec for verify API
-- [ ] Add CONTRIBUTING.md
-- [ ] Fix SDK — remove `/healthz` call, point to `/api/health`
-- [ ] Remove dead code (`packages/types/`, `lib/supabase/middleware.ts`, unused `checkEmailsSchema`)
+- [x] Fix `README.md` — correct Next.js 14.2, Clerk→Supabase Auth, Unkey→Custom+Zuplo, docker services
+- [x] Fix `docs/API.md` — correct port 3010, remove nonexistent `/api/v1/check`, fix error codes, fix health response, fix rate limits, fix auth references
+- [x] Fix `apps/web/src/app/docs/data.ts` — remove `/api/v1/check`, fix rate limits, fix health response
+- [x] Add OpenAPI spec (`docs/openapi.yaml`) for verify + health endpoints
+- [x] Add `.env.example` with all required vars documented
+- [x] Remove dead code (`packages/types/` removed, `checkEmailsSchema` removed, `lib/supabase/server.ts` + `client.ts` are active)
+
+### Latency Fixes
+
+- [x] Add local Docker Redis support (`REDIS_URL`) — Upstash > Local Redis > In-memory priority
+- [x] Lua script batching — rate limit 4 Redis calls → 1 atomic call (saves ~300ms)
+- [x] `redis.ts` rewritten with 3-tier fallback (Upstash, ioredis, MemoryStore)
+- [x] `rate-limit.ts` rewritten with Lua script for `checkComprehensiveRateLimit`
+- [x] Tests updated to mock `getRedis` + `evalsha`
 
 ---
 

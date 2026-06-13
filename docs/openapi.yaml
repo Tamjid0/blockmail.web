@@ -1,0 +1,254 @@
+openapi: 3.1.0
+info:
+  title: Blockmail SaaS API
+  description: Disposable email detection API. Block temporary and throwaway emails from your signup flows.
+  version: 1.0.0
+  contact:
+    name: Blockmail Support
+    email: support@blockmail.dev
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.blockmail.dev
+    description: Production
+  - url: http://localhost:3010
+    description: Local development
+
+security:
+  - apiKey: []
+
+paths:
+  /api/v1/verify:
+    post:
+      operationId: verifyEmail
+      summary: Verify Email
+      description: Check if a single email address is disposable. Returns verification result with risk score and tier analysis.
+      tags: [Verification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyRequest'
+            example:
+              email: user@example.com
+      responses:
+        '200':
+          description: Email verification result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerifyResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/EngineUnavailable'
+
+  /api/health:
+    get:
+      operationId: healthCheck
+      summary: Health Check
+      description: Check if the service is healthy. Returns connectivity status for database and engine.
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is degraded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Your Blockmail API key
+
+  schemas:
+    VerifyRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          description: Email address to verify
+          example: user@example.com
+        context:
+          type: object
+          description: Optional context for behavioral analysis
+          properties:
+            ip_address:
+              type: string
+              format: ipv4
+              description: Client IP address
+            user_agent:
+              type: string
+              maxLength: 500
+              description: Client user agent
+            country_code:
+              type: string
+              minLength: 2
+              maxLength: 2
+              description: ISO 3166-1 alpha-2 country code
+
+    VerifyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            email:
+              type: string
+              example: user@example.com
+            is_disposable:
+              type: boolean
+              example: false
+            risk_score:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: "Risk score: 0=clean, 70=suspicious, 80+=disposable, 100=invalid"
+              example: 0
+            analysis:
+              type: object
+              properties:
+                tier_triggered:
+                  type: integer
+                  minimum: 0
+                  maximum: 6
+                  description: "Which tier blocked (0=allowed, 1-6=blocked at tier N)"
+                  example: 0
+                reason:
+                  type: string
+                  enum: [allowed, syntax_invalid, domain_blocklist_hit, mx_blocklist_hit, domain_too_new, infra_fingerprint_hit, behavioral_context_hit, lookup_timeout_failsafe]
+                  example: allowed
+                domain:
+                  type: string
+                  example: example.com
+        meta:
+          type: object
+          properties:
+            request_id:
+              type: string
+              example: req_abc123
+            latency_ms:
+              type: integer
+              description: Server-side latency in milliseconds
+              example: 12
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded]
+          example: healthy
+        timestamp:
+          type: string
+          format: date-time
+        services:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [connected, error]
+                latencyMs:
+                  type: integer
+            engine:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [connected, error]
+                latencyMs:
+                  type: integer
+
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+
+  responses:
+    ValidationError:
+      description: Invalid request body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: VALIDATION_ERROR
+              message: Invalid email format
+
+    Unauthorized:
+      description: Invalid or missing API key
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: MISSING_API_KEY
+              message: API key is required.
+
+    RateLimited:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds until the rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: RATE_LIMIT_EXCEEDED
+              message: Rate limit exceeded.
+
+    EngineUnavailable:
+      description: Verification engine is unavailable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            success: false
+            error:
+              code: ENGINE_UNAVAILABLE
+              message: Verification engine is not available.

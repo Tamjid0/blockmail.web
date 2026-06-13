@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockIncr, mockExpire } = vi.hoisted(() => ({
+const { mockIncr, mockExpire, mockEvalsha } = vi.hoisted(() => ({
   mockIncr: vi.fn(),
   mockExpire: vi.fn(),
+  mockEvalsha: vi.fn(),
 }));
 
 vi.mock("@/lib/redis", () => ({
@@ -10,6 +11,14 @@ vi.mock("@/lib/redis", () => ({
     incr: mockIncr,
     expire: mockExpire,
   },
+  getRedis: () => ({
+    incr: mockIncr,
+    expire: mockExpire,
+    get: vi.fn(),
+    set: vi.fn(),
+    del: vi.fn(),
+    evalsha: mockEvalsha,
+  }),
 }));
 
 import {
@@ -142,6 +151,11 @@ describe("Rate Limiter", () => {
   });
 
   describe("checkComprehensiveRateLimit", () => {
+    beforeEach(() => {
+      // Force fallback to individual calls (Lua not available in tests)
+      mockEvalsha.mockRejectedValue(new Error("NOSCRIPT"));
+    });
+
     it("allows when both minute and daily limits pass", async () => {
       mockIncr.mockResolvedValue(5);
 

@@ -7,7 +7,8 @@ export default async function AuditPage() {
   const auth = await requireAuth();
   if (!auth) redirect("/sign-in");
 
-  const logs = await getAuditLogs({ userId: auth.dbUser.id, limit: 100 });
+  const rawLogs = await getAuditLogs({ userId: auth.dbUser.id, limit: 100 });
+  const logs = rawLogs.map((l) => ({ ...l, details: l.details as Record<string, unknown> | null }));
 
   return <AuditLogViewer initialLogs={logs} />;
 }

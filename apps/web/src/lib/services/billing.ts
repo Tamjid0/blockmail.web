@@ -2,14 +2,21 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { PLAN_LIMITS } from "@/lib/constants";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not set");
+function getStripe(): Stripe {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is not set");
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2026-05-27.dahlia",
+    typescript: true,
+  });
 }
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-05-28.basil",
-  typescript: true,
-});
+let _stripe: Stripe | null = null;
+export function stripe(): Stripe {
+  if (!_stripe) _stripe = getStripe();
+  return _stripe;
+}
 
 /**
  * Get or create a Stripe customer for a user.
@@ -25,7 +32,7 @@ export async function getOrCreateStripeCustomer(
     return user.stripeCustomerId;
   }
 
-  const customer = await stripe.customers.create({
+  const customer = await stripe().customers.create({
     email,
     metadata: { userId },
   });
@@ -53,7 +60,7 @@ export async function createCheckoutSession(
     throw new Error("PRO plan Stripe price ID is not configured. Set STRIPE_PRO_PRICE_ID.");
   }
 
-  return stripe.checkout.sessions.create({
+  return stripe().checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
     line_items: [{ price: priceId, quantity: 1 }],
@@ -76,7 +83,7 @@ export async function createPortalSession(
     throw new Error("No Stripe customer found. Upgrade to PRO first.");
   }
 
-  return stripe.billingPortal.sessions.create({
+  return stripe().billingPortal.sessions.create({
     customer: user.stripeCustomerId,
     return_url: `${origin}/dashboard/settings`,
   });
