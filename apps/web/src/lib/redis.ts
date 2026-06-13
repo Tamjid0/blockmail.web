@@ -175,7 +175,9 @@ function createRedisClient(): RedisLike {
             const fn = (p as unknown as Record<string, (...a: any[]) => void>)[op.cmd];
             if (fn) fn.call(p, op.key, ...(op.args ?? []));
           }
-          return p.exec() as Promise<unknown[]>;
+          const raw = await p.exec();
+          // ioredis exec() returns [Error|null, value][] tuples — extract values
+          return raw.map((pair: [Error | null, unknown]) => pair[1]);
         },
       };
     } catch {
