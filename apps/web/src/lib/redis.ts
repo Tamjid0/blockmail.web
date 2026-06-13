@@ -58,19 +58,22 @@ class MemoryStore {
     }
   }
 
-  async evalsha(_script: string, _keys: string[], ...args: unknown[]): Promise<unknown> {
-    // Lua script fallback for in-memory: simulate incr+expire for two keys
-    const [minuteCount] = args as [number, number, number, number];
-    const minuteKey = _keys[0];
-    const dailyKey = _keys[1];
-    const minuteTtl = args[2] as number;
-    const dailyTtl = args[3] as number;
-
-    const mc = await this.incr(minuteKey);
-    if (mc === 1) await this.expire(minuteKey, minuteTtl);
-    const dc = await this.incr(dailyKey);
-    if (dc === 1) await this.expire(dailyKey, dailyTtl);
-    return [mc, dc];
+  async pipeline(ops: Array<{ cmd: string; key: string; args?: unknown[] }>): Promise<unknown[]> {
+    const results: unknown[] = [];
+    for (const op of ops) {
+      switch (op.cmd) {
+        case "incr":
+          results.push(await this.incr(op.key));
+          break;
+        case "expire":
+          await this.expire(op.key, (op.args?.[0] as number) ?? 0);
+          results.push(1);
+          break;
+        default:
+          results.push(null);
+      }
+    }
+    return results;
   }
 
   private setAutoCleanup(key: string, seconds: number): void {
@@ -94,7 +97,7 @@ export interface RedisLike {
   get<T>(key: string): Promise<T | null>;
   set(key: string, value: unknown, opts?: { ex?: number }): Promise<void>;
   del(key: string): Promise<void>;
-  evalsha(script: string, keys: string[], ...args: unknown[]): Promise<unknown>;
+  pipeline(ops: Array<{ cmd: string; key: string; args?: unknown[] }>): Promise<unknown[]>;
 }
 
 // ─── Client Singleton ─────────────────────────────────────────────────────────
@@ -121,9 +124,15 @@ function createRedisClient(): RedisLike {
         set: (key: string, value: unknown, opts?: { ex?: number }) =>
           client.set(key, value, opts as Record<string, unknown>) as unknown as Promise<void>,
         del: (key: string) => client.del(key) as unknown as Promise<void>,
-        evalsha: (_script: string, _keys: string[], ..._args: unknown[]) =>
-          // Upstash doesn't support Lua scripts; fall back to individual calls
-          Promise.resolve([0, 0]),
+        pipeline: async (ops: Array<{ cmd: string; key: string; args?: unknown[] }>) => {
+          const p = client.pipeline();
+          for (const op of ops) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fn = (p as unknown as Record<string, (...a: any[]) => void>)[op.cmd];
+            if (fn) fn.call(p, op.key, ...(op.args ?? []));
+          }
+          return p.exec() as Promise<unknown[]>;
+        },
       };
     } catch {
       console.warn("[Redis] Upstash SDK failed, trying local Redis...");
@@ -159,8 +168,15 @@ function createRedisClient(): RedisLike {
           return client.set(key, JSON.stringify(value));
         },
         del: (key: string) => client.del(key) as Promise<void>,
-        evalsha: (script: string, keys: string[], ...args: unknown[]) =>
-          client.eval(script, keys.length, ...keys, ...args) as Promise<unknown>,
+        pipeline: async (ops: Array<{ cmd: string; key: string; args?: unknown[] }>) => {
+          const p = client.pipeline();
+          for (const op of ops) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fn = (p as unknown as Record<string, (...a: any[]) => void>)[op.cmd];
+            if (fn) fn.call(p, op.key, ...(op.args ?? []));
+          }
+          return p.exec() as Promise<unknown[]>;
+        },
       };
     } catch {
       console.warn("[Redis] ioredis failed, falling back to in-memory store");

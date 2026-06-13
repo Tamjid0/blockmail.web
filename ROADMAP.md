@@ -136,10 +136,22 @@
 ### Latency Fixes
 
 - [x] Add local Docker Redis support (`REDIS_URL`) — Upstash > Local Redis > In-memory priority
-- [x] Lua script batching — rate limit 4 Redis calls → 1 atomic call (saves ~300ms)
-- [x] `redis.ts` rewritten with 3-tier fallback (Upstash, ioredis, MemoryStore)
-- [x] `rate-limit.ts` rewritten with Lua script for `checkComprehensiveRateLimit`
-- [x] Tests updated to mock `getRedis` + `evalsha`
+- [x] Redis pipeline batching — 4 rate limit calls → 1 HTTP request (Upstash) or 1 round trip (local Redis)
+- [x] `redis.ts` rewritten with 3-tier fallback (Upstash, ioredis, MemoryStore) + `pipeline()` method
+- [x] `rate-limit.ts` rewritten with pipeline for `checkComprehensiveRateLimit` (falls back to individual calls)
+- [x] Fixed ioredis JSON serialization (`get()` returns parsed objects, not raw strings)
+- [x] `next.config.mjs` — webpack externals for ioredis (fixes `node:diagnostics_channel` build error)
+- [x] Tests updated to mock `getRedis` + `pipeline`
+
+### Latency Results
+
+| Email | Before (Upstash) | After (Local Redis) | Improvement |
+|-------|------------------|---------------------|-------------|
+| `cotrigordo@necub.com` | 2,079ms | 9ms | 230x |
+| `licikute@usm.ovh` | 739ms | 7ms | 105x |
+| `03px8@web-library.net` | 1,567ms | 120ms | 13x |
+
+Upstash with pipeline: ~500ms (2 round trips from Bangladesh). Local Redis: ~9ms.
 
 ---
 

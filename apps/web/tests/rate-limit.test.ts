@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockIncr, mockExpire, mockEvalsha } = vi.hoisted(() => ({
+const { mockIncr, mockExpire, mockPipeline } = vi.hoisted(() => ({
   mockIncr: vi.fn(),
   mockExpire: vi.fn(),
-  mockEvalsha: vi.fn(),
+  mockPipeline: vi.fn(),
 }));
 
 vi.mock("@/lib/redis", () => ({
@@ -17,7 +17,7 @@ vi.mock("@/lib/redis", () => ({
     get: vi.fn(),
     set: vi.fn(),
     del: vi.fn(),
-    evalsha: mockEvalsha,
+    pipeline: mockPipeline,
   }),
 }));
 
@@ -152,8 +152,8 @@ describe("Rate Limiter", () => {
 
   describe("checkComprehensiveRateLimit", () => {
     beforeEach(() => {
-      // Force fallback to individual calls (Lua not available in tests)
-      mockEvalsha.mockRejectedValue(new Error("NOSCRIPT"));
+      // Force fallback to individual calls (pipeline not available in tests)
+      mockPipeline.mockRejectedValue(new Error("not supported"));
     });
 
     it("allows when both minute and daily limits pass", async () => {

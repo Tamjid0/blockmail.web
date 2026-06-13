@@ -12,40 +12,6 @@ interface DailyLimitResult {
 }
 
 /**
- * Lua script for atomic rate limit check (minute + daily).
- * Runs on Redis server in a single round trip.
- *
- * KEYS[1] = minute rate limit key
- * KEYS[2] = daily rate limit key
- * ARGV[1] = minute window TTL (seconds)
- * ARGV[2] = daily window TTL (seconds)
- * ARGV[3] = minute limit
- * ARGV[4] = daily limit
- *
- * Returns: [minute_count, daily_count]
- */
-const RATE_LIMIT_LUA = `
-local minute_key = KEYS[1]
-local daily_key = KEYS[2]
-local minute_ttl = tonumber(ARGV[1])
-local daily_ttl = tonumber(ARGV[2])
-local minute_limit = tonumber(ARGV[3])
-local daily_limit = tonumber(ARGV[4])
-
-local minute_count = redis.call('INCR', minute_key)
-if minute_count == 1 then
-  redis.call('EXPIRE', minute_key, minute_ttl)
-end
-
-local daily_count = redis.call('INCR', daily_key)
-if daily_count == 1 then
-  redis.call('EXPIRE', daily_key, daily_ttl)
-end
-
-return {minute_count, daily_count}
-`;
-
-/**
  * Single rate limit check (minute window).
  * Fail-open: if Redis is unavailable, allow the request.
  */
@@ -121,8 +87,8 @@ export async function checkIpRateLimit(
 /**
  * Check both per-minute and daily rate limits.
  *
- * Uses a Lua script for atomic single-round-trip execution when possible.
- * Falls back to parallel individual calls for Upstash (no Lua support).
+ * Uses Redis pipeline (1 HTTP request for Upstash) to batch 4 commands.
+ * Falls back to Lua script (local Redis) or parallel individual calls.
  * Fail-open: if Redis is unavailable, allow the request.
  */
 export async function checkComprehensiveRateLimit(opts: {
@@ -149,19 +115,18 @@ export async function checkComprehensiveRateLimit(opts: {
   endOfDay.setUTCHours(23, 59, 59, 999);
   const dailyTtlSeconds = Math.ceil((endOfDay.getTime() - now) / 1000);
 
-  // Try Lua script (single round trip for local Redis)
+  // Try pipeline (1 HTTP request for Upstash, 1 round trip for local Redis)
   try {
-    const result = (await getRedis().evalsha(
-      RATE_LIMIT_LUA,
-      [minuteRedisKey, dailyRedisKey],
-      windowSeconds,
-      dailyTtlSeconds,
-      opts.minuteLimit,
-      opts.dailyLimit
-    )) as [number, number];
+    const results = await getRedis().pipeline([
+      { cmd: "incr", key: minuteRedisKey },
+      { cmd: "expire", key: minuteRedisKey, args: [windowSeconds] },
+      { cmd: "incr", key: dailyRedisKey },
+      { cmd: "expire", key: dailyRedisKey, args: [dailyTtlSeconds] },
+    ]);
 
-    if (Array.isArray(result) && result.length === 2) {
-      const [minuteCount, dailyCount] = result;
+    if (Array.isArray(results) && results.length === 4) {
+      const minuteCount = results[0] as number;
+      const dailyCount = results[2] as number;
       return {
         allowed: minuteCount <= opts.minuteLimit && dailyCount <= opts.dailyLimit,
         minute: {
@@ -176,10 +141,10 @@ export async function checkComprehensiveRateLimit(opts: {
       };
     }
   } catch {
-    // Lua not supported (Upstash) or error — fall through to individual calls
+    // Pipeline not supported — fall through to individual calls
   }
 
-  // Fallback: parallel individual calls (for Upstash or if Lua fails)
+  // Fallback: parallel individual calls
   const [minute, daily] = await Promise.all([
     checkRateLimit(opts.minuteKey, opts.minuteLimit, windowSeconds),
     checkDailyLimit(opts.dailyKey, opts.dailyLimit),

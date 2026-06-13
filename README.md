@@ -7,7 +7,7 @@ Disposable email detection API service. Block temporary and throwaway emails fro
 - **Framework:** Next.js 14.2 (App Router)
 - **Language:** TypeScript (strict mode)
 - **Database:** PostgreSQL + Prisma (Supabase Cloud or self-hosted)
-- **Cache:** Redis (Upstash for cloud, local Redis for self-hosted)
+- **Cache:** Redis (Upstash for cloud, local Redis for self-hosted, pipeline batching for rate limits)
 - **Auth:** Supabase Auth (dashboard login, signup, password reset)
 - **API Gateway:** Zuplo (managed edge, rate limiting, key validation)
 - **UI:** Tailwind CSS + shadcn/ui
